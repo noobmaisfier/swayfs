@@ -38,7 +38,6 @@ depends=(
   'xcb-util-wm'
 )
 makedepends=(
-  'devtools'
   'git'
   'meson'
   'ninja'

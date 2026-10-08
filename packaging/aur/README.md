@@ -19,7 +19,7 @@ git -C ../../.. archive --format=tar.gz --prefix=swayfs-v0.6.swayfs.1/ \
     -o swayfs-v0.6.swayfs.1.tar.gz HEAD
 
 makepkg -od          # source download/verification/extraction only
-sudo pacman -S --needed --asdeps base-devel devtools scenefx
+sudo pacman -S --needed --asdeps base-devel scenefx
 makepkg -si          # full build + install
 ```
 
