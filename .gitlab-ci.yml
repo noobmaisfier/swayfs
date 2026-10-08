@@ -42,6 +42,7 @@ check:
     - test -f meson.build
     - test -f ci/asan-smoke.sh
     - bash -n ci/fetch-subprojects.sh ci/asan-smoke.sh
+    - bash -n packaging/aur/swayfs/PKGBUILD
     - echo "check OK"
 
 build:

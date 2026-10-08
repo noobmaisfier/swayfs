@@ -120,6 +120,12 @@ nix develop
 
 Check [INSTALL-deb.md](/INSTALL-deb.md)
 
+### Arch Linux
+
+Arch packaging (PKGBUILD, AUR-ready) lives in
+[`packaging/aur/`](/packaging/aur). See
+[packaging/aur/README.md](/packaging/aur/README.md).
+
 ### Container (Docker)
 
 To build SwayFX inside a container, install Docker and run the following commands from inside this repository:

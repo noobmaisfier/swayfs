@@ -1,0 +1,76 @@
+# Maintainer: Alamine Dione <alaminedion@users.noreply.gitlab.com>
+#
+# swayfs — personal SwayFX fork focused on low RAM/CPU usage.
+#
+# This package builds *only* swayfs. The heavy dependencies are the official
+# Arch packages `scenefx` and `wlroots0.20` (both in [extra]), so no bundled
+# or AUR dependency is required.
+#
+# NOTE: the source repository is currently private. Before publishing to the
+# AUR, make the project (or a public mirror) reachable, push the release tag,
+# then refresh sha256sums with `makepkg -g`.
+
+pkgname=swayfs
+pkgver=0.6.swayfs.1
+pkgrel=1
+pkgdesc="SwayFX fork focused on low RAM/CPU usage (no swaybar/swaybg, fcft instead of pango)"
+arch=('x86_64')
+url="https://gitlab.com/alaminedion/swayfs"
+license=('MIT')
+_tag="v${pkgver}"
+
+depends=(
+  'cairo'
+  'fcft'
+  'libdrm'
+  'libevdev.so'
+  'libinput'
+  'libjson-c.so'
+  'libpcre2-8.so'
+  'libpixman-1.so'
+  'libudev.so'
+  'libwayland-server.so'
+  'libxcb'
+  'libxkbcommon.so'
+  'scenefx'
+  'ttf-font'
+  'wlroots0.20'
+  'xcb-util-wm'
+)
+makedepends=(
+  'devtools'
+  'git'
+  'meson'
+  'ninja'
+  'pkgconf'
+  'scdoc'
+  'wayland-protocols'
+)
+optdepends=(
+  'xorg-xwayland: X11 (XWayland) support'
+  'xdg-desktop-portal-wlr: xdg-desktop-portal backend'
+  'xdg-desktop-portal-gtk: file picker portal'
+  'polkit: system privilege control when not using seatd'
+  'swaybg: wallpaper tool (no longer bundled in swayfs)'
+  'swayidle: idle management daemon'
+  'swaylock: screen locker'
+  'waybar: highly customizable bar'
+)
+provides=('sway' 'wayland-compositor')
+conflicts=('sway' 'swayfx' 'swayfx-git' 'swayfs-git')
+backup=('etc/sway/config')
+
+source=("$pkgname-$_tag.tar.gz::https://gitlab.com/alaminedion/swayfs/-/archive/$_tag/$pkgname-$_tag.tar.gz")
+# TODO(release): replace SKIP with `makepkg -g` output once the tag is pushed
+# (and the repository/mirror is public).
+sha256sums=('SKIP')
+
+build() {
+  arch-meson "$pkgname-$_tag" build -Dwerror=false -Dman-pages=enabled
+  meson compile -C build
+}
+
+package() {
+  DESTDIR="$pkgdir" meson install -C build
+  install -Dm644 "$pkgname-$_tag/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

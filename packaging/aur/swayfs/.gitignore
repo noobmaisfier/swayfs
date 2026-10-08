@@ -1,0 +1,5 @@
+# pkg/ and src/ are makepkg work dirs, the *.tar.gz is a local test source.
+pkg/
+src/
+*.tar.gz
+*.tar.zst
