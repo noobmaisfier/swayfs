@@ -51,13 +51,21 @@ framebuffer rendering regression test (`ci/render-smoke.sh`).
 
 ### Memory footprint
 
-`swayfs` is measurably lighter than upstream SwayFX. In a controlled headless
-A/B (same system `scenefx`/`wlroots0.20`, same config, 6 clients), the
-compositor's PSS is about **11 MB lower (~20 %)** and anonymous memory about
-**10 MB lower (~28 %)**, with effects either on or off. The saving is a fixed
-startup allocation, dominated by replacing `pango` with `fcft`: measuring a
-font with pango builds the whole fontconfig font set (~8 MB of heap on a system
-with ~12k fonts), whereas fcft loads only the requested font.
+`swayfs` is measurably lighter than upstream SwayFX in a controlled headless
+A/B (same `scenefx`/`wlroots0.20`, same config, 6 clients). The saving is a
+fixed startup allocation dominated by replacing `pango` with `fcft`: pango
+eagerly builds the whole fontconfig font set when measuring a font, whereas
+fcft loads only the requested font. Its size therefore scales with the number
+of installed fonts:
+
+| installed fonts | PSS vs upstream |
+|---|---|
+| ~12 000 | ~11 MB lower (~20 %) |
+| ~1 000  | ~1.5 MB lower (~3 %) |
+
+Because the same font-set cost is paid by every pango process, a large font
+collection also inflates unrelated GTK applications; pruning unneeded fonts
+benefits the whole machine.
 
 Reproduce with:
 
