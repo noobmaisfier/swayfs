@@ -46,7 +46,24 @@ git checkout dev && git merge master
 ```
 
 CI (`.gitlab-ci.yml`) builds in an Arch container against pinned `scenefx` /
-`wlroots` and runs an ASan/UBSan headless smoke test (`ci/asan-smoke.sh`).
+`wlroots` and runs an ASan/UBSan headless smoke test (`ci/asan-smoke.sh`) plus a
+framebuffer rendering regression test (`ci/render-smoke.sh`).
+
+### Memory footprint
+
+`swayfs` is measurably lighter than upstream SwayFX. In a controlled headless
+A/B (same system `scenefx`/`wlroots0.20`, same config, 6 clients), the
+compositor's PSS is about **11 MB lower (~20 %)** and anonymous memory about
+**10 MB lower (~28 %)**, with effects either on or off. The saving is a fixed
+startup allocation, dominated by replacing `pango` with `fcft`: measuring a
+font with pango builds the whole fontconfig font set (~8 MB of heap on a system
+with ~12k fonts), whereas fcft loads only the requested font.
+
+Reproduce with:
+
+```sh
+ci/measure-ram.sh <sway-binary> <label> <n-clients> [off|on]
+```
 
 ## New Configuration Options
 
