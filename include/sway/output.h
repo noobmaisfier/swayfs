@@ -156,4 +156,7 @@ struct sway_output_non_desktop *output_non_desktop_create(struct wlr_output *wlr
 
 void update_output_manager_config(struct sway_server *server);
 
+// TEMPORARY: start the "present but invisible" diagnostic timer.
+void output_init_invisible_diagnostic(struct wl_event_loop *loop);
+
 #endif

@@ -714,6 +714,9 @@ bool server_init(struct sway_server *server) {
 
 	animation_manager_init(server);
 
+	// TEMPORARY: see output_init_invisible_diagnostic().
+	output_init_invisible_diagnostic(server->wl_event_loop);
+
 	return true;
 }
 
