@@ -1033,16 +1033,21 @@ static void arrange_output(struct sway_output *output, int width, int height) {
 			add_animation(&new_active->animation_state.animation,
 				workspace_fade_update_callback, workspace_fade_complete_callback);
 		}
-	} else if (old_active && new_active && old_active != new_active
+	} else if (new_active && old_active != new_active
 			&& output->wlr_output->enabled) {
-		// Non-animated workspace switch: reset stale fade alpha so the new
-		// active workspace isn't left fully transparent.
+		// Non-animated workspace switch, or a switch whose previous workspace
+		// was destroyed before this arrange ran. Reset stale fade alpha so the
+		// new active workspace isn't left fully transparent. This must NOT
+		// depend on old_active: leaving an empty workspace makes
+		// seat_set_focus() -> workspace_consider_destroy() free it and clear
+		// prev_active_workspace, so old_active is NULL on the next switch and
+		// the previous fade-out of new_active (to_alpha == 0) would stick.
 		finish_animation(&new_active->animation_state.animation);
 		new_active->animation_state.from_alpha = 1.0f;
 		new_active->animation_state.to_alpha = 1.0f;
 
 		// #591: do not fade out a workspace that moved to another output.
-		if (!old_moved_away) {
+		if (old_active && !old_moved_away) {
 			finish_animation(&old_active->animation_state.animation);
 			old_active->animation_state.from_alpha = 1.0f;
 			old_active->animation_state.to_alpha = 0.0f;
