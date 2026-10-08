@@ -46,6 +46,9 @@ endif
 # Execute the scenefx subproject, if any
 subproject(
 	'scenefx',
+	# Third-party code: do not let its warnings fail our build (GCC 16 is
+	# stricter than what these pinned versions were tested with).
+	default_options: ['werror=false'],
 	required: false,
 )
 scenefx = dependency('scenefx-0.5', fallback: 'scenefx')
@@ -54,7 +57,7 @@ scenefx = dependency('scenefx-0.5', fallback: 'scenefx')
 wlroots_version = ['>=0.20.0', '<0.21.0']
 subproject(
 	'wlroots',
-	default_options: ['examples=false'],
+	default_options: ['examples=false', 'werror=false'],
 	required: false,
 	version: wlroots_version,
 )

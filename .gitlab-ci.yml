@@ -10,12 +10,14 @@ stages:
   - test
 
 variables:
-  WLR_TAG: "0.20.0"
+  WLR_TAG: "0.20.2"
   SCENEFX_TAG: "0.5"
   GIT_DEPTH: "50"
 
 default:
   image: archlinux:latest
+  interruptible: true
+  timeout: 1h
   cache:
     key: "subprojects-$WLR_TAG-$SCENEFX_TAG"
     paths:
@@ -32,16 +34,19 @@ default:
 
 check:
   stage: check
+  before_script: []
+  cache: {}
   script:
     - git diff --check
     - test -f meson.build
     - test -f ci/asan-smoke.sh
+    - bash -n ci/fetch-subprojects.sh ci/asan-smoke.sh
     - echo "check OK"
 
 build:
   stage: build
   script:
-    - meson setup build --buildtype=release
+    - meson setup build --buildtype=release -Dwlroots:werror=false -Dscenefx:werror=false
     - ninja -C build
     - ./build/sway/sway --version
   artifacts:
@@ -55,6 +60,6 @@ test:asan:
   stage: test
   dependencies: []
   script:
-    - meson setup build-asan -Db_lto=false -Db_sanitize=address,undefined -Db_ndebug=false
+    - meson setup build-asan -Db_lto=false -Db_sanitize=address,undefined -Db_ndebug=false -Dwlroots:werror=false -Dscenefx:werror=false
     - ninja -C build-asan
     - bash ci/asan-smoke.sh build-asan
