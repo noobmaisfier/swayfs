@@ -5,8 +5,9 @@ lib_sway_client = static_library(
 	),
 	dependencies: [
 		cairo,
-		pango,
-		pangocairo,
+		fcft,
+		fontconfig,
+		pixman,
 		wayland_client
 	],
 	link_with: [lib_sway_common],

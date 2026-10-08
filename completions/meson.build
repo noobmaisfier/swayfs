@@ -16,10 +16,6 @@ if get_option('bash-completions')
 		'bash/swaymsg',
 	)
 
-	if get_option('swaybar')
-		bash_files += files('bash/swaybar')
-	endif
-
 	if bash_comp.found()
 		bash_install_dir = bash_comp.get_variable(
 			pkgconfig: 'completionsdir',

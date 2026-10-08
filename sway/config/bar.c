@@ -70,16 +70,6 @@ void free_bar_config(struct bar_config *bar) {
 	free(bar->colors.binding_mode_border);
 	free(bar->colors.binding_mode_bg);
 	free(bar->colors.binding_mode_text);
-#if HAVE_TRAY
-	list_free_items_and_destroy(bar->tray_outputs);
-	free(bar->icon_theme);
-
-	struct tray_binding *tray_bind = NULL, *tmp_tray_bind = NULL;
-	wl_list_for_each_safe(tray_bind, tmp_tray_bind, &bar->tray_bindings, link) {
-		wl_list_remove(&tray_bind->link);
-		free(tray_bind);
-	}
-#endif
 	free(bar);
 }
 
@@ -170,11 +160,6 @@ struct bar_config *default_bar_config(void) {
 	bar->colors.binding_mode_bg = NULL;
 	bar->colors.binding_mode_text = NULL;
 
-#if HAVE_TRAY
-	bar->tray_padding = 2;
-	wl_list_init(&bar->tray_bindings);
-#endif
-
 	return bar;
 cleanup:
 	free_bar_config(bar);
@@ -190,6 +175,15 @@ static void handle_swaybar_client_destroy(struct wl_listener *listener,
 }
 
 static void invoke_swaybar(struct bar_config *bar) {
+	// swaybar binaire supprime du build : seul un swaybar_command externe
+	// (waybar/ironbar) peut etre lance. Evite fork+socketpair+wl_client
+	// inutiles quand le bloc `bar` residuel n'a pas de commande.
+	if (!bar->swaybar_command) {
+		sway_log(SWAY_ERROR, "bar '%s' has no swaybar_command: "
+			"built-in swaybar was removed, set `swaybar_command waybar` "
+			"or remove the bar block", bar->id);
+		return;
+	}
 	int sockets[2];
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, sockets) != 0) {
 		sway_log_errno(SWAY_ERROR, "socketpair failed");
@@ -222,9 +216,9 @@ static void invoke_swaybar(struct bar_config *bar) {
 				"%d", sockets[1]);
 		setenv("WAYLAND_SOCKET", wayland_socket_str, true);
 
-		// run custom swaybar
+		// run custom swaybar (external only, e.g. waybar)
 		char *const cmd[] = {
-				bar->swaybar_command ? bar->swaybar_command : "swaybar",
+				bar->swaybar_command,
 				"-b", bar->id, NULL};
 		execvp(cmd[0], cmd);
 		_exit(EXIT_FAILURE);

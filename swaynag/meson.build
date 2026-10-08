@@ -10,8 +10,9 @@ executable(
 	include_directories: [sway_inc],
 	dependencies: [
 		cairo,
-		pango,
-		pangocairo,
+		fcft,
+		fontconfig,
+		pixman,
 		rt,
 		wayland_client,
 		wayland_cursor,

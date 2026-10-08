@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <fcntl.h>
 #include <strings.h>
 #include <sys/stat.h>

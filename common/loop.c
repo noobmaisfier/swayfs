@@ -165,6 +165,19 @@ bool loop_remove_fd(struct loop *loop, int fd) {
 			memmove(&loop->fds[i], &loop->fds[i + 1],
 					sizeof(struct pollfd) * (loop->fd_length - i));
 
+			// Release high-water pollfd array after bursts.
+			if (loop->fd_capacity > 20 && loop->fd_length + 10 < loop->fd_capacity) {
+				int capacity = loop->fd_length + 10;
+				struct pollfd *tmp = realloc(loop->fds,
+						sizeof(struct pollfd) * capacity);
+				if (tmp) {
+					loop->fds = tmp;
+					loop->fd_capacity = capacity;
+				}
+			}
+			list_shrink(loop->fd_events);
+			list_shrink(loop->timers);
+
 			return true;
 		}
 	}

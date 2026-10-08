@@ -25,7 +25,6 @@ block. For example:
 
 ```
 output eDP-1 {
-	background ~/wallpaper.png fill
 	resolution 1920x1080
 }
 ```
@@ -33,7 +32,6 @@ output eDP-1 {
 is identical to
 
 ```
-output eDP-1 background ~/wallpaper.png fill
 output eDP-1 resolution 1920x1080
 ```
 
@@ -75,13 +73,6 @@ The following commands may only be used in the configuration file.
 *scratchpad_minimize* enable|disable
 	Adjusts if minimized windows should be moved into the scratchpad.
 	Must be set at config-time (when starting sway).
-
-*swaybg_command* <command>
-	Executes custom background _command_. Default is _swaybg_. Refer to
-	*sway-output*(5) for more information.
-
-	It can be disabled by setting the command to a single dash:
-	_swaybg\_command -_
 
 *swaynag_command* <command>
 	Executes custom command for _swaynag_. Default is _swaynag_. Additional

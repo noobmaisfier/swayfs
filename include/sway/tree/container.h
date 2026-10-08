@@ -222,6 +222,11 @@ size_t parse_title_format(struct sway_container *container, char *buffer);
 size_t container_build_representation(enum sway_container_layout layout,
 		list_t *children, char *buffer);
 
+// Single-pass variants: one walk + growable buffer (no measure pass).
+char *parse_title_format_alloc(struct sway_container *container);
+char *container_build_representation_alloc(enum sway_container_layout layout,
+		list_t *children);
+
 void container_update_representation(struct sway_container *container);
 
 /**
@@ -396,6 +401,10 @@ void container_arrange_title_bar(struct sway_container *con);
 void container_update(struct sway_container *con);
 
 void container_update_itself_and_parents(struct sway_container *con);
+
+void container_ensure_blur(struct sway_container *con);
+
+void container_ensure_shadow(struct sway_container *con);
 
 bool container_has_shadow(struct sway_container *con);
 

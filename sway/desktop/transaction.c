@@ -44,6 +44,36 @@ struct sway_transaction_instruction {
 	bool waiting;
 };
 
+// Freelist for instruction shells: drag/resize allocate one per dirty node
+// per frame. The state lists transfer ownership to current on apply, so
+// recycled shells must have their list pointers NULled (done on push).
+#define INSTRUCTION_FREELIST_MAX 128
+static struct sway_transaction_instruction *instruction_freelist[INSTRUCTION_FREELIST_MAX];
+static int instruction_freelist_len;
+
+static struct sway_transaction_instruction *instruction_alloc(void) {
+	if (instruction_freelist_len > 0) {
+		struct sway_transaction_instruction *in =
+			instruction_freelist[--instruction_freelist_len];
+		memset(in, 0, sizeof(*in));
+		return in;
+	}
+	return calloc(1, sizeof(struct sway_transaction_instruction));
+}
+
+static void instruction_recycle(struct sway_transaction_instruction *in) {
+	// State lists were transferred to node->current by apply (or never
+	// allocated if the transaction never applied); the shell itself must
+	// not point at them anymore. Zero it so copy_*_state allocates fresh
+	// lists only when needed and never double-owns.
+	memset(in, 0, sizeof(*in));
+	if (instruction_freelist_len < INSTRUCTION_FREELIST_MAX) {
+		instruction_freelist[instruction_freelist_len++] = in;
+	} else {
+		free(in);
+	}
+}
+
 static struct sway_transaction *transaction_create(void) {
 	struct sway_transaction *transaction =
 		calloc(1, sizeof(struct sway_transaction));
@@ -191,7 +221,9 @@ static void transaction_destroy(struct sway_transaction *transaction) {
 				break;
 			}
 		}
-		free(instruction);
+		// Only caller is post-apply (queued transaction): state lists were
+		// transferred to node->current, the shell is safe to recycle.
+		instruction_recycle(instruction);
 	}
 	list_free(transaction->instructions);
 
@@ -299,7 +331,7 @@ static void transaction_add_node(struct sway_transaction *transaction,
 	}
 
 	if (!instruction) {
-		instruction = calloc(1, sizeof(struct sway_transaction_instruction));
+		instruction = instruction_alloc();
 		if (!sway_assert(instruction, "Unable to allocate instruction")) {
 			return;
 		}
@@ -538,6 +570,9 @@ static void _arrange_container(struct sway_container *con,
 	bool has_corner_radius = container_has_corner_radius(con);
 
 	if (container_has_shadow(con)) {
+		container_ensure_shadow(con);
+	}
+	if (con->shadow && container_has_shadow(con)) {
 		int corner_radius = has_corner_radius ? con->corner_radius + con->current.border_thickness : 0;
 		if (!con->view && title_bar) {
 			// Stacking/Tabbed containers don't have a border_thickness, so we
@@ -684,15 +719,20 @@ static void _arrange_container(struct sway_container *con,
 			return;
 		}
 
-		// Dim
+		// Dim: avoid fullscreen overdraw when dim is ~0. Disabled node
+		// costs nothing, an alpha-0 rect still costs a fullscreen blend.
 		if (con->dim_rect) {
-			wlr_scene_node_set_position(&con->dim_rect->node, border_left, border_top);
-			wlr_scene_rect_set_size(con->dim_rect, content_width, content_height);
-			bool has_titlebar = !title_bar || con->current.border == B_NORMAL;
-			wlr_scene_rect_set_corner_radii(
-				con->dim_rect,
-				has_titlebar ? corner_radii_bottom(con->corner_radius) : corner_radii_all(con->corner_radius)
-			);
+			bool dimmed = con->dim > 0.01;
+			wlr_scene_node_set_enabled(&con->dim_rect->node, dimmed);
+			if (dimmed) {
+				wlr_scene_node_set_position(&con->dim_rect->node, border_left, border_top);
+				wlr_scene_rect_set_size(con->dim_rect, content_width, content_height);
+				bool has_titlebar = !title_bar || con->current.border == B_NORMAL;
+				wlr_scene_rect_set_corner_radii(
+					con->dim_rect,
+					has_titlebar ? corner_radii_bottom(con->corner_radius) : corner_radii_all(con->corner_radius)
+				);
+			}
 		}
 
 		// make sure to reparent, it's possible that the client just came out of
@@ -701,9 +741,16 @@ static void _arrange_container(struct sway_container *con,
 		wlr_scene_node_set_position(&con->view->scene_tree->node,
 			border_left, border_top);
 
-		wlr_scene_node_set_enabled(&con->blur->node, con->blur_enabled);
-		wlr_scene_node_set_position(&con->blur->node, border_left, border_top);
-		wlr_scene_blur_set_size(con->blur, content_width, content_height);
+		if (con->blur_enabled) {
+			container_ensure_blur(con);
+		}
+		if (con->blur) {
+			wlr_scene_node_set_enabled(&con->blur->node, con->blur_enabled);
+			if (con->blur_enabled) {
+				wlr_scene_node_set_position(&con->blur->node, border_left, border_top);
+				wlr_scene_blur_set_size(con->blur, content_width, content_height);
+			}
+		}
 
 		// the output handler for the view wants to detect events for the entire
 		// container so give it negative coordinates to move it back over the
@@ -717,9 +764,11 @@ static void _arrange_container(struct sway_container *con,
 			wlr_scene_node_set_enabled(&con->title_bar.tree->node, false);
 		}
 
-		wlr_scene_node_set_enabled(&con->shadow->node,
-				container_has_shadow(con) &&
-				(con->current.layout == L_TABBED || con->current.layout == L_STACKED));
+		if (con->shadow) {
+			wlr_scene_node_set_enabled(&con->shadow->node,
+					container_has_shadow(con) &&
+					(con->current.layout == L_TABBED || con->current.layout == L_STACKED));
+		}
 
 		arrange_children(con->current.layout, con->current.children,
 			con->current.focused_inactive_child, con->content_tree,
@@ -1329,7 +1378,7 @@ static void _transaction_commit_dirty(bool server_request) {
 		transaction_add_node(server.pending_transaction, node, server_request);
 		node->dirty = false;
 	}
-	server.dirty_nodes->length = 0;
+	list_clear(server.dirty_nodes);
 
 	transaction_commit_pending();
 }

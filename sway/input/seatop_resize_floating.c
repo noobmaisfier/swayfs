@@ -130,6 +130,13 @@ static void handle_pointer_motion(struct sway_seat *seat, uint32_t time_msec) {
 	int relative_grow_x = (e->ref_con_lx + grow_x) - con->pending.x;
 	int relative_grow_y = (e->ref_con_ly + grow_y) - con->pending.y;
 
+	// Coalesce: pointer events at 125-1000Hz often produce no effective
+	// delta once min/max constraints clamp the size.
+	if (relative_grow_width == 0 && relative_grow_height == 0 &&
+			relative_grow_x == 0 && relative_grow_y == 0) {
+		return;
+	}
+
 	// Actually resize stuff
 	con->pending.x += relative_grow_x;
 	con->pending.y += relative_grow_y;

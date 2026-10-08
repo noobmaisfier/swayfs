@@ -2,11 +2,15 @@
 #include "sway/config.h"
 #include "sway/output.h"
 #include "sway/tree/arrange.h"
+#include "sway/tree/container.h"
 #include "sway/tree/root.h"
 #include "util.h"
 
 static void arrange_blur_iter(struct sway_container *con, void *data) {
 	con->blur_enabled = config->blur_enabled;
+	if (con->blur_enabled) {
+		container_ensure_blur(con);
+	}
 }
 
 struct cmd_results *cmd_blur(int argc, char **argv) {
@@ -27,6 +31,9 @@ struct cmd_results *cmd_blur(int argc, char **argv) {
 		arrange_root();
 	} else {
 		con->blur_enabled = result;
+		if (result) {
+			container_ensure_blur(con);
+		}
 		arrange_container(con);
 	}
 

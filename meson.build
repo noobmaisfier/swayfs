@@ -9,6 +9,9 @@ project(
 		'warning_level=2',
 		'werror=true',
 		'wrap_mode=nodownload',
+		'buildtype=release',
+		'b_ndebug=true',
+		'b_lto=true',
 	],
 )
 
@@ -77,9 +80,8 @@ wayland_cursor = dependency('wayland-cursor')
 wayland_protos = dependency('wayland-protocols', version: '>=1.41', default_options: ['tests=false'])
 xkbcommon = dependency('xkbcommon', version: '>=1.5.0')
 cairo = dependency('cairo')
-pango = dependency('pango')
-pangocairo = dependency('pangocairo')
-gdk_pixbuf = dependency('gdk-pixbuf-2.0', required: get_option('gdk-pixbuf'))
+fcft = cc.find_library('fcft', required: true)
+fontconfig = dependency('fontconfig')
 pixman = dependency('pixman-1')
 libevdev = dependency('libevdev')
 libinput = wlroots_features['libinput_backend'] ? dependency('libinput', version: '>=1.26.0') : null_dep
@@ -91,34 +93,7 @@ rt = cc.find_library('rt')
 xcb_icccm = wlroots_features['xwayland'] ? dependency('xcb-icccm') : null_dep
 threads = dependency('threads') # for pthread_setschedparam and pthread_atfork
 
-if get_option('sd-bus-provider') == 'auto'
-	if not get_option('tray').disabled()
-		assert(get_option('auto_features').auto(), 'sd-bus-provider must not be set to auto since auto_features != auto')
-	endif
-	sdbus = dependency(['libsystemd', 'libelogind'],
-		required: false,
-		version: '>=239',
-	)
-	if not sdbus.found()
-		sdbus = dependency('basu', required: false)
-	endif
-else
-	sdbus = dependency(get_option('sd-bus-provider'), required: get_option('tray'))
-endif
-
-tray_deps_found = sdbus.found()
-if get_option('tray').enabled() and not tray_deps_found
-	error('Building with -Dtray=enabled, but sd-bus has not been not found')
-endif
-have_tray = (not get_option('tray').disabled()) and tray_deps_found
-
 conf_data = configuration_data()
-
-conf_data.set10('HAVE_GDK_PIXBUF', gdk_pixbuf.found())
-conf_data.set10('HAVE_LIBSYSTEMD', sdbus.found() and sdbus.name() == 'libsystemd')
-conf_data.set10('HAVE_LIBELOGIND', sdbus.found() and sdbus.name() == 'libelogind')
-conf_data.set10('HAVE_BASU', sdbus.found() and sdbus.name() == 'basu')
-conf_data.set10('HAVE_TRAY', have_tray)
 foreach sym : ['LIBINPUT_CONFIG_ACCEL_PROFILE_CUSTOM', 'LIBINPUT_CONFIG_DRAG_LOCK_ENABLED_STICKY', 'LIBINPUT_SWITCH_KEYPAD_SLIDE']
 	conf_data.set10('HAVE_' + sym, cc.has_header_symbol('libinput.h', sym, dependencies: libinput))
 endforeach
@@ -134,7 +109,6 @@ if scdoc.found()
 		'sway/sway-input.5.scd',
 		'sway/sway-ipc.7.scd',
 		'sway/sway-output.5.scd',
-		'swaybar/swaybar-protocol.7.scd',
 		'swaymsg/swaymsg.1.scd',
 	]
 
@@ -207,11 +181,8 @@ subdir('common')
 subdir('sway')
 subdir('swaymsg')
 
-if get_option('swaybar') or get_option('swaynag')
+if get_option('swaynag')
 	subdir('client')
-endif
-if get_option('swaybar')
-	subdir('swaybar')
 endif
 if get_option('swaynag')
 	subdir('swaynag')
@@ -235,15 +206,10 @@ install_data(
 )
 
 if get_option('default-wallpaper')
+	# Minimal set: one landscape + one portrait (was 8 files, ~5.4M).
 	wallpaper_files = files(
-		'assets/Sway_Wallpaper_Blue_768x1024.png',
-		'assets/Sway_Wallpaper_Blue_768x1024_Portrait.png',
-		'assets/Sway_Wallpaper_Blue_1136x640.png',
-		'assets/Sway_Wallpaper_Blue_1136x640_Portrait.png',
-		'assets/Sway_Wallpaper_Blue_1366x768.png',
 		'assets/Sway_Wallpaper_Blue_1920x1080.png',
-		'assets/Sway_Wallpaper_Blue_2048x1536.png',
-		'assets/Sway_Wallpaper_Blue_2048x1536_Portrait.png',
+		'assets/Sway_Wallpaper_Blue_768x1024_Portrait.png',
 	)
 	wallpaper_install_dir = join_paths(datadir, 'backgrounds', 'sway')
 
@@ -253,7 +219,5 @@ endif
 subdir('completions')
 
 summary({
-	'gdk-pixbuf': gdk_pixbuf.found(),
-	'tray': have_tray,
 	'man-pages': scdoc.found(),
 }, bool_yn: true)

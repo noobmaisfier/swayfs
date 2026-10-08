@@ -1,6 +1,7 @@
 #include <limits.h>
 #include <wlr/types/wlr_cursor.h>
 #include <wlr/util/edges.h>
+#include "sway/config.h"
 #include "sway/desktop/transaction.h"
 #include "sway/input/cursor.h"
 #include "sway/input/seat.h"
@@ -330,11 +331,19 @@ static void handle_motion_postthreshold(struct sway_seat *seat) {
 static void handle_pointer_motion(struct sway_seat *seat, uint32_t time_msec) {
 	struct seatop_move_tiling_event *e = seat->seatop_data;
 	if (e->threshold_reached) {
+		// Indicator-only update (scene nodes set directly in
+		// handle_motion_postthreshold): no container state changes,
+		// so no O(tree) transaction needed here. Final move commits.
 		handle_motion_postthreshold(seat);
 	} else {
 		handle_motion_prethreshold(seat);
+		// Pre-threshold motion changes nothing until the drag threshold
+		// is exceeded; skip the synchronous transaction.
+		if (!e->threshold_reached) {
+			return;
+		}
+		transaction_commit_dirty();
 	}
-	transaction_commit_dirty();
 }
 
 static bool is_parallel(enum sway_container_layout layout,

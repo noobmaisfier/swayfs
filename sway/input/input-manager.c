@@ -91,6 +91,20 @@ char *input_device_get_identifier(struct wlr_input_device *device) {
 	return identifier;
 }
 
+const char *input_device_get_identifier_cached(
+		struct wlr_input_device *device) {
+	if (!device) {
+		return "*";
+	}
+	struct sway_input_device *input_device = device->data;
+	if (input_device && input_device->identifier) {
+		return input_device->identifier;
+	}
+	// Not registered yet (hot path race): wildcard matches "*" bindings.
+	// Callers needing the exact id use input_device_get_identifier().
+	return "*";
+}
+
 static bool device_is_touchpad(struct sway_input_device *device) {
 #if WLR_HAS_LIBINPUT_BACKEND
 	if (device->wlr_device->type != WLR_INPUT_DEVICE_POINTER ||

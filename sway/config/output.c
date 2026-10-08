@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <drm_fourcc.h>
+#include <limits.h>
 #include <stdbool.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -137,18 +138,6 @@ static void supersede_output_config(struct output_config *dst, struct output_con
 		}
 		dst->color_profile = COLOR_PROFILE_DEFAULT;
 	}
-	if (src->background) {
-		free(dst->background);
-		dst->background = NULL;
-	}
-	if (src->background_option) {
-		free(dst->background_option);
-		dst->background_option = NULL;
-	}
-	if (src->background_fallback) {
-		free(dst->background_fallback);
-		dst->background_fallback = NULL;
-	}
 	if (src->power != -1) {
 		dst->power = -1;
 	}
@@ -215,18 +204,6 @@ static void merge_output_config(struct output_config *dst, struct output_config 
 		dst->color_profile = src->color_profile;
 		dst->color_transform = src->color_transform;
 	}
-	if (src->background) {
-		free(dst->background);
-		dst->background = strdup(src->background);
-	}
-	if (src->background_option) {
-		free(dst->background_option);
-		dst->background_option = strdup(src->background_option);
-	}
-	if (src->background_fallback) {
-		free(dst->background_fallback);
-		dst->background_fallback = strdup(src->background_fallback);
-	}
 	if (src->power != -1) {
 		dst->power = src->power;
 	}
@@ -277,11 +254,11 @@ void store_output_config(struct output_config *oc) {
 	}
 
 	sway_log(SWAY_DEBUG, "Config stored for output %s (enabled: %d) (%dx%d@%fHz "
-		"position %d,%d scale %f subpixel %s transform %d) (bg %s %s) (power %d) "
+		"position %d,%d scale %f subpixel %s transform %d) (power %d) "
 		"(max render time: %d) (allow tearing: %d) (hdr: %d)",
 		oc->name, oc->enabled, oc->width, oc->height, oc->refresh_rate,
 		oc->x, oc->y, oc->scale, sway_wl_output_subpixel_to_string(oc->subpixel),
-		oc->transform, oc->background, oc->background_option, oc->power,
+		oc->transform, oc->power,
 		oc->max_render_time, oc->allow_tearing, oc->hdr);
 
 	// If the configuration was not merged into an existing configuration, add
@@ -1169,132 +1146,7 @@ void free_output_config(struct output_config *oc) {
 		return;
 	}
 	free(oc->name);
-	free(oc->background);
-	free(oc->background_option);
-	free(oc->background_fallback);
 	wlr_color_transform_unref(oc->color_transform);
 	free(oc);
-}
-
-static void handle_swaybg_client_destroy(struct wl_listener *listener,
-		void *data) {
-	struct sway_config *sway_config =
-		wl_container_of(listener, sway_config, swaybg_client_destroy);
-	wl_list_remove(&sway_config->swaybg_client_destroy.link);
-	wl_list_init(&sway_config->swaybg_client_destroy.link);
-	sway_config->swaybg_client = NULL;
-}
-
-static bool _spawn_swaybg(char **command) {
-	if (config->swaybg_client != NULL) {
-		wl_client_destroy(config->swaybg_client);
-	}
-	int sockets[2];
-	if (socketpair(AF_UNIX, SOCK_STREAM, 0, sockets) != 0) {
-		sway_log_errno(SWAY_ERROR, "socketpair failed");
-		return false;
-	}
-	if (!sway_set_cloexec(sockets[0], true) || !sway_set_cloexec(sockets[1], true)) {
-		return false;
-	}
-
-	config->swaybg_client = wl_client_create(server.wl_display, sockets[0]);
-	if (config->swaybg_client == NULL) {
-		sway_log_errno(SWAY_ERROR, "wl_client_create failed");
-		return false;
-	}
-
-	config->swaybg_client_destroy.notify = handle_swaybg_client_destroy;
-	wl_client_add_destroy_listener(config->swaybg_client,
-		&config->swaybg_client_destroy);
-
-	pid_t pid = fork();
-	if (pid < 0) {
-		sway_log_errno(SWAY_ERROR, "fork failed");
-		return false;
-	} else if (pid == 0) {
-		if (!sway_set_cloexec(sockets[1], false)) {
-			_exit(EXIT_FAILURE);
-		}
-
-		char wayland_socket_str[16];
-		snprintf(wayland_socket_str, sizeof(wayland_socket_str),
-			"%d", sockets[1]);
-		setenv("WAYLAND_SOCKET", wayland_socket_str, true);
-
-		execvp(command[0], command);
-		sway_log_errno(SWAY_ERROR, "failed to execute '%s' "
-			"(background configuration probably not applied)",
-			command[0]);
-		_exit(EXIT_FAILURE);
-	}
-
-	if (close(sockets[1]) != 0) {
-		sway_log_errno(SWAY_ERROR, "close failed");
-		return false;
-	}
-	return true;
-}
-
-bool spawn_swaybg(void) {
-	if (!config->swaybg_command) {
-		return true;
-	}
-
-	size_t length = 2;
-	for (int i = 0; i < config->output_configs->length; i++) {
-		struct output_config *oc = config->output_configs->items[i];
-		if (!oc->background) {
-			continue;
-		}
-		if (strcmp(oc->background_option, "solid_color") == 0) {
-			length += 4;
-		} else if (oc->background_fallback) {
-			length += 8;
-		} else {
-			length += 6;
-		}
-	}
-
-	char **cmd = calloc(length, sizeof(char *));
-	if (!cmd) {
-		sway_log(SWAY_ERROR, "Failed to allocate spawn_swaybg command");
-		return false;
-	}
-
-	size_t i = 0;
-	cmd[i++] = config->swaybg_command;
-	for (int j = 0; j < config->output_configs->length; j++) {
-		struct output_config *oc = config->output_configs->items[j];
-		if (!oc->background) {
-			continue;
-		}
-		if (strcmp(oc->background_option, "solid_color") == 0) {
-			cmd[i++] = "-o";
-			cmd[i++] = oc->name;
-			cmd[i++] = "-c";
-			cmd[i++] = oc->background;
-		} else {
-			cmd[i++] = "-o";
-			cmd[i++] = oc->name;
-			cmd[i++] = "-i";
-			cmd[i++] = oc->background;
-			cmd[i++] = "-m";
-			cmd[i++] = oc->background_option;
-			if (oc->background_fallback) {
-				cmd[i++] = "-c";
-				cmd[i++] = oc->background_fallback;
-			}
-		}
-		assert(i <= length);
-	}
-
-	for (size_t k = 0; k < i; k++) {
-		sway_log(SWAY_DEBUG, "spawn_swaybg cmd[%zd] = %s", k, cmd[k]);
-	}
-
-	bool result = _spawn_swaybg(cmd);
-	free(cmd);
-	return result;
 }
 

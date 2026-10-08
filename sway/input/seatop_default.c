@@ -7,6 +7,7 @@
 #include "gesture.h"
 #include "sway/desktop/transaction.h"
 #include "sway/input/cursor.h"
+#include "sway/input/input-manager.h"
 #include "sway/input/seat.h"
 #include "sway/input/tablet.h"
 #include "sway/layers.h"
@@ -303,8 +304,9 @@ static bool trigger_pointer_button_binding(struct sway_seat *seat,
 
 	struct seatop_default_event *e = seat->seatop_data;
 
-	char *device_identifier = device ? input_device_get_identifier(device)
-		: strdup("*");
+	// Borrowed cached id (no alloc per button event).
+	const char *device_identifier =
+		input_device_get_identifier_cached(device);
 	struct sway_binding *binding = NULL;
 	if (state == WL_POINTER_BUTTON_STATE_PRESSED) {
 		state_add_button(e, button);
@@ -320,7 +322,6 @@ static bool trigger_pointer_button_binding(struct sway_seat *seat,
 		state_erase_button(e, button);
 	}
 
-	free(device_identifier);
 	if (binding) {
 		seat_execute_command(seat, binding);
 		return true;
@@ -734,9 +735,9 @@ static void handle_pointer_axis(struct sway_seat *seat,
 	// Gather information needed for mouse bindings
 	struct wlr_keyboard *keyboard = wlr_seat_get_keyboard(seat->wlr_seat);
 	uint32_t modifiers = keyboard ? wlr_keyboard_get_modifiers(keyboard) : 0;
-	struct wlr_input_device *device =
-		input_device ? input_device->wlr_device : NULL;
-	char *dev_id = device ? input_device_get_identifier(device) : strdup("*");
+	// Borrowed: sway device already carries the cached identifier.
+	const char *dev_id = input_device && input_device->identifier ?
+		input_device->identifier : "*";
 	uint32_t button = wl_axis_to_button(event);
 
 	// Handle mouse bindings - x11 mouse buttons 4-7 - press event
@@ -790,7 +791,6 @@ static void handle_pointer_axis(struct sway_seat *seat,
 		seat_execute_command(seat, binding);
 		handled = true;
 	}
-	free(dev_id);
 
 	if (!handled) {
 		wlr_seat_pointer_notify_axis(cursor->seat->wlr_seat, event->time_msec,
@@ -810,8 +810,9 @@ static void handle_pointer_axis(struct sway_seat *seat,
  */
 static bool gesture_binding_check(list_t *bindings, enum gesture_type type,
 		uint8_t fingers, struct sway_input_device *device) {
-	char *input =
-		device ? input_device_get_identifier(device->wlr_device) : strdup("*");
+	// Borrowed cached id: gesture checks run per touch event.
+	const char *input = device && device->identifier ?
+		device->identifier : "*";
 
 	for (int i = 0; i < bindings->length; ++i) {
 		struct sway_gesture_binding *binding = bindings->items[i];
@@ -827,12 +828,8 @@ static bool gesture_binding_check(list_t *bindings, enum gesture_type type,
 			continue;
 		}
 
-		free(input);
-
 		return true;
 	}
-
-	free(input);
 
 	return false;
 }
@@ -897,17 +894,15 @@ static struct sway_gesture_binding* gesture_binding_match(
 // Wrapper around gesture_tracker_end to use tracker with sway bindings
 static struct sway_gesture_binding* gesture_tracker_end_and_match(
 		struct gesture_tracker *tracker, struct sway_input_device* device) {
-	// Determine name of input that received gesture
-	char *input = device
-		? input_device_get_identifier(device->wlr_device)
-		: strdup("*");
+	// Borrowed cached id, no alloc.
+	const char *input = device && device->identifier ?
+		device->identifier : "*";
 
 	// Match tracking result to binding
 	struct gesture *gesture = gesture_tracker_end(tracker);
 	struct sway_gesture_binding *binding = gesture_binding_match(
 			config->current_mode->gesture_bindings, gesture, input);
 	free(gesture);
-	free(input);
 
 	return binding;
 }

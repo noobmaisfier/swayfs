@@ -12,6 +12,7 @@
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <sys/un.h>
+#include <time.h>
 #include <unistd.h>
 #include <wayland-server-core.h>
 #include "sway/commands.h"
@@ -297,6 +298,19 @@ void ipc_event_workspace(struct sway_workspace *old,
 	if (!ipc_has_event_listeners(IPC_EVENT_WORKSPACE)) {
 		return;
 	}
+	// Throttle workspace::focus: rapid workspace switching serializes two
+	// full trees per event. Cap to ~10Hz; final state stays queryable.
+	if (change && strcmp(change, "focus") == 0) {
+		static struct timespec last_ws_focus = {0, 0};
+		struct timespec now;
+		clock_gettime(CLOCK_MONOTONIC, &now);
+		long elapsed_ms = (now.tv_sec - last_ws_focus.tv_sec) * 1000 +
+			(now.tv_nsec - last_ws_focus.tv_nsec) / 1000000;
+		if (elapsed_ms < 100) {
+			return;
+		}
+		last_ws_focus = now;
+	}
 	sway_log(SWAY_DEBUG, "Sending workspace::%s event", change);
 	json_object *obj = json_object_new_object();
 	json_object_object_add(obj, "change", json_object_new_string(change));
@@ -322,6 +336,21 @@ void ipc_event_workspace(struct sway_workspace *old,
 void ipc_event_window(struct sway_container *window, const char *change) {
 	if (!ipc_has_event_listeners(IPC_EVENT_WINDOW)) {
 		return;
+	}
+	// Throttle high-frequency window events (focus/move/mark/urgent): each
+	// one serializes the full node tree to JSON. Cap to ~10Hz globally;
+	// close/new/floating/fullscreen stay immediate.
+	if (change && (strcmp(change, "focus") == 0 || strcmp(change, "move") == 0 ||
+			strcmp(change, "mark") == 0 || strcmp(change, "urgent") == 0)) {
+		static struct timespec last_win_fast = {0, 0};
+		struct timespec now;
+		clock_gettime(CLOCK_MONOTONIC, &now);
+		long elapsed_ms = (now.tv_sec - last_win_fast.tv_sec) * 1000 +
+			(now.tv_nsec - last_win_fast.tv_nsec) / 1000000;
+		if (elapsed_ms < 100) {
+			return;
+		}
+		last_win_fast = now;
 	}
 	sway_log(SWAY_DEBUG, "Sending window::%s event", change);
 	json_object *obj = json_object_new_object();
@@ -555,6 +584,18 @@ int ipc_client_handle_writable(int client_fd, uint32_t mask, void *data) {
 	if (client->write_buffer_len == 0 && client->writable_event_source) {
 		wl_event_source_remove(client->writable_event_source);
 		client->writable_event_source = NULL;
+	}
+
+	// Shrink high-water mark: a single GET_TREE can grow the buffer to
+	// megabytes and pin it for the life of the client (waybar, scripts).
+	// Keep a small working set once drained.
+	if (client->write_buffer_len == 0 && client->write_buffer_size > 8192) {
+		size_t target = 4096;
+		char *shrunk = realloc(client->write_buffer, target);
+		if (shrunk) {
+			client->write_buffer = shrunk;
+			client->write_buffer_size = target;
+		}
 	}
 
 	return 0;
@@ -813,10 +854,33 @@ void ipc_client_handle_command(struct ipc_client *client, uint32_t payload_lengt
 
 	case IPC_GET_TREE:
 	{
+		// Cache GET_TREE ~100ms: waybar/scripts poll it at Hz rates and
+		// each call serializes the whole tree (Mo de JSON a 10Hz).
+		static char *cached_tree = NULL;
+		static size_t cached_len = 0;
+		static struct timespec cached_at = {0, 0};
+		struct timespec now;
+		clock_gettime(CLOCK_MONOTONIC, &now);
+		long tree_age_ms = (now.tv_sec - cached_at.tv_sec) * 1000 +
+			(now.tv_nsec - cached_at.tv_nsec) / 1000000;
+		if (cached_tree && tree_age_ms < 100) {
+			ipc_send_reply(client, payload_type, cached_tree,
+				(uint32_t)cached_len);
+			goto exit_cleanup;
+		}
 		json_object *tree = ipc_json_describe_node_recursive(&root->node);
 		const char *json_string = json_object_to_json_string(tree);
-		ipc_send_reply(client, payload_type, json_string,
-			(uint32_t)strlen(json_string));
+		size_t len = strlen(json_string);
+		ipc_send_reply(client, payload_type, json_string, (uint32_t)len);
+		free(cached_tree);
+		cached_tree = malloc(len + 1);
+		if (cached_tree) {
+			memcpy(cached_tree, json_string, len + 1);
+			cached_len = len;
+			cached_at = now;
+		} else {
+			cached_len = 0;
+		}
 		json_object_put(tree);
 		goto exit_cleanup;
 	}

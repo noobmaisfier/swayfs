@@ -89,8 +89,8 @@ runtime.
 	can be given at any point to reset it back to all outputs.
 
 *pango_markup* enabled|disabled
-	Enables or disables pango markup for status lines. This has no effect on
-	status lines using the i3bar JSON protocol.
+	Accepted for compatibility; markup is stripped and text is rendered
+	plain (fcft backend, no Pango).
 
 *position* top|bottom
 	Sets position of the bar. Default is _bottom_.
@@ -102,7 +102,7 @@ runtime.
 	Executes the bar _status command_ with _sh -c_. Each line of text printed
 	to stdout from this command will be displayed in the status area of the
 	bar. You may also use swaybar's JSON status line protocol. See
-	*swaybar-protocol*(7) for more information on the protocol
+	the i3bar JSON protocol
 
 	If running this command via IPC, you can disable a running status command by
 	setting the command to a single dash: _swaybar bar bar-0 status\_command -_
@@ -148,40 +148,6 @@ The following commands may only be used at runtime.
 *mode* toggle [<bar_id>]
 	Toggles the current mode between _hide_ and _dock_. Any other mode
 	is treated as _hide_.
-
-## TRAY
-
-Swaybar provides a system tray where third-party applications may place icons.
-The following commands configure the tray.
-
-*tray_bindcode* <event-code>
-ContextMenu|Activate|SecondaryActivate|ScrollDown|ScrollLeft|ScrollRight|ScrollUp|nop
-	Executes the action when the mouse button has been pressed. The buttons can
-	be given as an event code, which can be obtained from *libinput debug-events*.
-	To disable the default behavior for a button, use the command _nop_.
-
-*tray_bindsym* button[1-9]|<event-name>
-ContextMenu|Activate|SecondaryActivate|ScrollDown|ScrollLeft|ScrollRight|ScrollUp|nop
-	Executes the action when the mouse button has been pressed. The buttons can
-	be given as a x11 button number or an event name, which can be obtained
-	from *libinput debug-events*. Use the command _nop_ to disable the default
-	action (Activate for button1, ContextMenu for button2 and SecondaryActivate
-	for button3).
-
-*tray_padding* <px> [px]
-	Sets the pixel padding of the system tray. This padding will surround the
-	tray on all sides and between each item. The default value for _px_ is 2.
-
-*tray_output* none|<output>|\*
-	Restrict the tray to a certain output, can be specified multiple times. If
-	omitted, the tray will be displayed on all outputs. Unlike i3bar, swaybar
-	can show icons on any number of bars and outputs without races. _\*_ can be
-	given at any point to reset it to display on all outputs.
-
-*icon_theme* <name>
-	Sets the icon theme that sway will look for item icons in. This option has
-	no default value, because sway will always default to the fallback theme,
-	hicolor.
 
 ## COLORS
 
@@ -234,4 +200,4 @@ must be defined in hex: _#RRGGBB_ or _#RRGGBBAA_.
 
 # SEE ALSO
 
-*sway*(5) *swaybar-protocol*(7)
+*sway*(5)

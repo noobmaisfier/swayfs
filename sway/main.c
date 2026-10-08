@@ -1,5 +1,4 @@
 #include <getopt.h>
-#include <pango/pangocairo.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdbool.h>
@@ -410,8 +409,6 @@ shutdown:
 	if (nag_gpu.client != NULL) {
 		wl_client_destroy(nag_gpu.client);
 	}
-
-	pango_cairo_font_map_set_default(NULL);
 
 	return exit_value;
 }

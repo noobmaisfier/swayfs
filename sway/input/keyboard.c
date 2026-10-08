@@ -436,7 +436,9 @@ static void handle_key_event(struct sway_keyboard *keyboard,
 	struct wlr_seat *wlr_seat = seat->wlr_seat;
 	struct wlr_input_device *wlr_device =
 		keyboard->seat_device->input_device->wlr_device;
-	char *device_identifier = input_device_get_identifier(wlr_device);
+	// Borrowed cached id: per-keypress hot path, no alloc.
+	const char *device_identifier =
+		input_device_get_identifier_cached(wlr_device);
 	bool exact_identifier = keyboard->wlr->group != NULL;
 	seat_idle_notify_activity(seat, IDLE_SOURCE_KEYBOARD);
 	bool locked = server.session_lock.lock;
@@ -524,7 +526,6 @@ static void handle_key_event(struct sway_keyboard *keyboard,
 
 	if (!handled && keyboard->wlr->group) {
 		// Only handle device specific bindings for keyboards in a group
-		free(device_identifier);
 		return;
 	}
 
@@ -582,7 +583,6 @@ static void handle_key_event(struct sway_keyboard *keyboard,
 				event->keycode, event->state);
 	}
 
-	free(device_identifier);
 }
 
 static void handle_keyboard_key(struct wl_listener *listener, void *data) {

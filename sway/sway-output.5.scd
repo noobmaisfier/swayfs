@@ -93,17 +93,6 @@ must be separated by one space. For example:
 	Incorrect values will result in blurrier text. When changing this via
 	*swaymsg*, some applications may need to be restarted to use the new value.
 
-*output* <name> background|bg <file> <mode> [<fallback_color>]
-	Sets the wallpaper for the given output to the specified file, using the
-	given scaling mode (one of "stretch", "fill", "fit", "center", "tile"). If
-	the specified file cannot be accessed or if the image does not fill the entire
-	output, a fallback color may be provided to cover the rest of the output.
-	_fallback_color_ should be specified as _#RRGGBB_. Alpha is not supported.
-
-*output* <name> background|bg <color> solid_color
-	Sets the background of the given output to the specified color. _color_
-	should be specified as _#RRGGBB_. Alpha is not supported.
-
 *output* <name> transform <transform> [clockwise|anticlockwise]
 	Sets the background transform to the given value. Can be one of "90", "180",
 	"270" for rotation; or "flipped", "flipped-90", "flipped-180", "flipped-270"

@@ -8,6 +8,9 @@
 
 static void arrange_shadow_iter(struct sway_container *con, void *data) {
 	con->shadow_enabled = config->shadow_enabled;
+	if (con->shadow_enabled) {
+		container_ensure_shadow(con);
+	}
 }
 
 struct cmd_results *cmd_shadows(int argc, char **argv) {
@@ -26,6 +29,9 @@ struct cmd_results *cmd_shadows(int argc, char **argv) {
 		root_for_each_container(arrange_shadow_iter, NULL);
 	} else {
 		con->shadow_enabled = result;
+		if (result) {
+			container_ensure_shadow(con);
+		}
 	}
 
 	arrange_root();

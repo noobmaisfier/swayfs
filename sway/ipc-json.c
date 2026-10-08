@@ -1155,6 +1155,9 @@ static json_object *describe_libinput_device(struct libinput_device *device) {
 		case LIBINPUT_CONFIG_SCROLL_ON_BUTTON_DOWN:
 			scroll_method = "on_button_down";
 			break;
+		case LIBINPUT_CONFIG_SCROLL_CIRCULAR:
+			scroll_method = "circular";
+			break;
 		}
 		json_object_object_add(object, "scroll_method",
 				json_object_new_string(scroll_method));
@@ -1515,43 +1518,6 @@ json_object *ipc_json_describe_bar_config(struct bar_config *bar) {
 		}
 		json_object_object_add(json, "outputs", outputs);
 	}
-#if HAVE_TRAY
-	// Add tray outputs if defined
-	if (bar->tray_outputs && bar->tray_outputs->length > 0) {
-		json_object *tray_outputs = json_object_new_array();
-		for (int i = 0; i < bar->tray_outputs->length; ++i) {
-			const char *name = bar->tray_outputs->items[i];
-			json_object_array_add(tray_outputs, json_object_new_string(name));
-		}
-		json_object_object_add(json, "tray_outputs", tray_outputs);
-	}
-
-	json_object *tray_bindings = json_object_new_array();
-	struct tray_binding *tray_bind = NULL;
-	wl_list_for_each(tray_bind, &bar->tray_bindings, link) {
-		json_object *bind = json_object_new_object();
-		json_object_object_add(bind, "input_code",
-				json_object_new_int(event_to_x11_button(tray_bind->button)));
-		json_object_object_add(bind, "event_code",
-				json_object_new_int(tray_bind->button));
-		json_object_object_add(bind, "command",
-				json_object_new_string(tray_bind->command));
-		json_object_array_add(tray_bindings, bind);
-	}
-	if (json_object_array_length(tray_bindings) > 0) {
-		json_object_object_add(json, "tray_bindings", tray_bindings);
-	} else {
-		json_object_put(tray_bindings);
-	}
-
-	if (bar->icon_theme) {
-		json_object_object_add(json, "icon_theme",
-				json_object_new_string(bar->icon_theme));
-	}
-
-	json_object_object_add(json, "tray_padding",
-			json_object_new_int(bar->tray_padding));
-#endif
 	return json;
 }
 

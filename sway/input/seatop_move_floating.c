@@ -42,7 +42,13 @@ static void handle_pointer_motion(struct sway_seat *seat, uint32_t time_msec) {
 
 	e->con->animation_state.seat_is_moving_float = true;
 
-	container_floating_move_to(e->con, cursor->x - e->dx, cursor->y - e->dy);
+	double nx = cursor->x - e->dx, ny = cursor->y - e->dy;
+	// Coalesce 125-1000Hz motion: skip full O(tree) transaction when
+	// the cursor reports no effective displacement.
+	if (nx == e->con->pending.x && ny == e->con->pending.y) {
+		return;
+	}
+	container_floating_move_to(e->con, nx, ny);
 	transaction_commit_dirty();
 }
 

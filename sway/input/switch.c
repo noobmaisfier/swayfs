@@ -1,4 +1,5 @@
 #include "sway/config.h"
+#include "sway/input/input-manager.h"
 #include "sway/input/switch.h"
 #include "sway/server.h"
 #include "log.h"
@@ -84,10 +85,10 @@ static void handle_switch_toggle(struct wl_listener *listener, void *data) {
 
 	struct wlr_input_device *wlr_device =
 		sway_switch->seat_device->input_device->wlr_device;
-	char *device_identifier = input_device_get_identifier(wlr_device);
+	const char *device_identifier =
+		input_device_get_identifier_cached(wlr_device);
 	sway_log(SWAY_DEBUG, "%s: type %d state %d", device_identifier,
 			event->switch_type, event->switch_state);
-	free(device_identifier);
 
 	sway_switch->type = event->switch_type;
 	sway_switch->state = event->switch_state;

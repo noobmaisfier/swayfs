@@ -19,7 +19,17 @@
 #include "sway/input/tablet.h"
 #include "sway/tree/root.h"
 #include "wlr-layer-shell-unstable-v1-protocol.h"
-#include <pango/pangocairo.h>
+#include "sway/font.h"
+
+// Build fix (GCC >= 14 defaults implicit-declaration to error): MIN/MAX
+// were never defined in-repo and only resolved transitively before.
+// Guarded so system headers (sys/param.h) still win when present.
+#ifndef MIN
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#endif
+#ifndef MAX
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#endif
 
 // TODO: Refactor this shit
 
@@ -298,10 +308,6 @@ struct output_config {
 	struct wlr_color_transform *color_transform;
 	int allow_tearing;
 	int hdr;
-
-	char *background;
-	char *background_option;
-	char *background_fallback;
 };
 
 /**
@@ -405,13 +411,6 @@ struct bar_config {
 		char *binding_mode_bg;
 		char *binding_mode_text;
 	} colors;
-
-#if HAVE_TRAY
-	char *icon_theme;
-	struct wl_list tray_bindings; // struct tray_binding::link
-	list_t *tray_outputs; // char *
-	int tray_padding;
-#endif
 };
 
 struct bar_binding {
@@ -419,14 +418,6 @@ struct bar_binding {
 	bool release;
 	char *command;
 };
-
-#if HAVE_TRAY
-struct tray_binding {
-	uint32_t button;
-	const char *command;
-	struct wl_list link; // struct tray_binding::link
-};
-#endif
 
 struct border_colors {
 	float border[4];
@@ -543,7 +534,7 @@ struct sway_config {
 	enum sway_container_layout default_orientation;
 	enum sway_container_layout default_layout;
 	char *font; // Used for IPC.
-	PangoFontDescription *font_description; // Used internally for rendering and validating.
+	struct sway_font *font_description; // Used internally for rendering and validating.
 	int font_height;
 	int font_baseline;
 	bool pango_markup;
@@ -554,11 +545,6 @@ struct sway_config {
 	enum sway_fowa focus_on_window_activation;
 	enum sway_popup_during_fullscreen popup_during_fullscreen;
 	enum xwayland_mode xwayland;
-
-	// swaybg
-	char *swaybg_command;
-	struct wl_client *swaybg_client;
-	struct wl_listener swaybg_client_destroy;
 
 	// Flags
 	enum focus_follows_mouse_mode focus_follows_mouse;
@@ -744,8 +730,6 @@ void free_output_config(struct output_config *oc);
 void request_modeset(void);
 void force_modeset(void);
 bool modeset_is_pending(void);
-
-bool spawn_swaybg(void);
 
 int workspace_output_cmp_workspace(const void *a, const void *b);
 

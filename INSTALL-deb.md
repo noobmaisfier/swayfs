@@ -10,7 +10,7 @@ Debian Trixie requires a specific set of development headers, particularly for t
 sudo apt update && sudo apt install -y \
   meson pkg-config cmake git scdoc \
   wayland-protocols libwayland-dev libpcre2-dev libjson-c-dev \
-  libpango1.0-dev libcairo2-dev libgdk-pixbuf-2.0-dev \
+  libfcft-dev libfontconfig-dev libfreetype-dev libcairo2-dev \
   libdrm-dev libgbm-dev libinput-dev libseat-dev libxkbcommon-dev \
   libxcb-dri3-dev libxcb-present-dev libxcb-res0-dev \
   libxcb-render-util0-dev libxcb-ewmh-dev libxcb-icccm4-dev \

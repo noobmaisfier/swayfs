@@ -853,6 +853,7 @@ static void handle_constraint_commit(struct wl_listener *listener,
 		wl_container_of(listener, cursor, constraint_commit);
 	struct wlr_pointer_constraint_v1 *constraint = cursor->active_constraint;
 	assert(constraint->surface == data);
+	(void)constraint; // assert-only use: NDEBUG release builds would warn
 
 	check_constraint_region(cursor);
 }

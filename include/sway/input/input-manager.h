@@ -76,6 +76,12 @@ struct input_config *input_device_get_config(struct sway_input_device *device);
 
 char *input_device_get_identifier(struct wlr_input_device *device);
 
+// Borrowed cached identifier (device->data, set at add time). No alloc,
+// for per-event hot paths (button/scroll at 100s Hz). Do not free.
+// Falls back to "*" when the device is not registered yet.
+const char *input_device_get_identifier_cached(
+	struct wlr_input_device *device);
+
 const char *input_device_get_type(struct sway_input_device *device);
 
 #endif

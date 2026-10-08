@@ -1086,13 +1086,12 @@ struct sway_container *workspace_split(struct sway_workspace *workspace,
 }
 
 void workspace_update_representation(struct sway_workspace *ws) {
-	size_t len = container_build_representation(ws->layout, ws->tiling, NULL);
-	free(ws->representation);
-	ws->representation = calloc(len + 1, sizeof(char));
-	if (!sway_assert(ws->representation, "Unable to allocate title string")) {
+	char *rep = container_build_representation_alloc(ws->layout, ws->tiling);
+	if (!sway_assert(rep, "Unable to allocate title string")) {
 		return;
 	}
-	container_build_representation(ws->layout, ws->tiling, ws->representation);
+	free(ws->representation);
+	ws->representation = rep;
 }
 
 void workspace_get_box(struct sway_workspace *workspace, struct wlr_box *box) {

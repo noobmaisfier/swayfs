@@ -6,7 +6,7 @@
 #include <wlr/interfaces/wlr_buffer.h>
 #include "cairo_util.h"
 #include "log.h"
-#include "pango.h"
+#include "sway/font.h"
 #include "sway/config.h"
 #include "sway/sway_text_node.h"
 
@@ -79,17 +79,6 @@ static void render_backing_buffer(struct text_buffer *buffer) {
 	int height = ceil(buffer->props.height * scale);
 	float *color = (float *)&buffer->props.color;
 	float *background = (float *)&buffer->props.background;
-	PangoContext *pango = NULL;
-
-	cairo_font_options_t *fo = cairo_font_options_create();
-	cairo_font_options_set_hint_style(fo, CAIRO_HINT_STYLE_FULL);
-	enum wl_output_subpixel subpixel = buffer->subpixel;
-	if (subpixel == WL_OUTPUT_SUBPIXEL_NONE || subpixel == WL_OUTPUT_SUBPIXEL_UNKNOWN) {
-		cairo_font_options_set_antialias(fo, CAIRO_ANTIALIAS_GRAY);
-	} else {
-		cairo_font_options_set_antialias(fo, CAIRO_ANTIALIAS_SUBPIXEL);
-		cairo_font_options_set_subpixel_order(fo, to_cairo_subpixel_order(subpixel));
-	}
 
 	cairo_surface_t *surface = cairo_image_surface_create(
 			CAIRO_FORMAT_ARGB32, width, height);
@@ -113,9 +102,7 @@ static void render_backing_buffer(struct text_buffer *buffer) {
 		goto err;
 	}
 
-	cairo_set_antialias(cairo, CAIRO_ANTIALIAS_BEST);
-	cairo_set_font_options(cairo, fo);
-	pango = pango_cairo_create_context(cairo);
+	cairo_set_antialias(cairo, CAIRO_ANTIALIAS_GRAY);
 
 	cairo_set_source_rgba(cairo, background[0], background[1], background[2], background[3]);
 	cairo_rectangle(cairo, 0, 0, width, height);
@@ -146,8 +133,7 @@ static void render_backing_buffer(struct text_buffer *buffer) {
 	pixman_region32_fini(&opaque);
 
 err:
-	if (pango) g_object_unref(pango);
-	cairo_font_options_destroy(fo);
+	return;
 }
 
 static void handle_outputs_update(struct wl_listener *listener, void *data) {
@@ -198,24 +184,12 @@ static void handle_destroy(struct wl_listener *listener, void *data) {
 static void text_calc_size(struct text_buffer *buffer) {
 	struct sway_text_node *props = &buffer->props;
 
-	cairo_surface_t *recorder = cairo_recording_surface_create(
-		CAIRO_CONTENT_COLOR_ALPHA, NULL);
-	cairo_t *c = cairo_create(recorder);
-	cairo_surface_destroy(recorder);
-	if (cairo_status(c) != CAIRO_STATUS_SUCCESS) {
-		sway_log(SWAY_ERROR, "cairo_t allocation failed: %s",
-			cairo_status_to_string(cairo_status(c)));
-		goto out;
-	}
-
-	cairo_set_antialias(c, CAIRO_ANTIALIAS_BEST);
-	get_text_size(c, config->font_description, &props->width, NULL,
+	// fcft measures without cairo scratch surface (no recording surface alloc).
+	get_text_size(NULL, config->font_description, &props->width, NULL,
 		&props->baseline, 1, props->pango_markup, "%s", buffer->text);
 
 	wlr_scene_buffer_set_dest_size(buffer->buffer_node,
 		get_text_width(props), props->height);
-out:
-	cairo_destroy(c);
 }
 
 struct sway_text_node *sway_text_node_create(struct wlr_scene_tree *parent,

@@ -2,13 +2,14 @@
 #define _SWAYNAG_TYPES_H
 
 #include <stdint.h>
-#include <pango/pangocairo.h>
+#include <sys/types.h>
 #include "list.h"
+#include "sway/font.h"
 
 struct swaynag_type {
 	char *name;
 
-	PangoFontDescription *font_description;
+	struct sway_font *font_description;
 	char *output;
 	uint32_t anchors;
 	int32_t layer; // enum zwlr_layer_shell_v1_layer or -1 if unset

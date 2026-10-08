@@ -21,12 +21,16 @@ enum criteria_type {
 
 enum pattern_type {
 	PATTERN_PCRE2,
+	PATTERN_LITERAL,
 	PATTERN_FOCUSED,
 };
 
 struct pattern {
 	enum pattern_type match_type;
 	pcre2_code *regex;
+	// When match_type == PATTERN_LITERAL, `literal` holds the plain string
+	// and `regex` is NULL. Avoids pcre2_match_data alloc + JIT per test.
+	char *literal;
 };
 
 struct criteria {

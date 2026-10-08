@@ -16,6 +16,11 @@ struct cmd_results *cmd_shadow_blur_radius(int argc, char **argv) {
 	if (*inv != '\0' || value < 0 || value > 99) {
 		return cmd_results_new(CMD_FAILURE, "Invalid size specified");
 	}
+	if (value > 30) {
+		sway_log(SWAY_INFO, "shadow_blur_radius %d is very expensive "
+			"(FBO +%dpx, large kernel); clamping to 30", value, value * 2);
+		value = 30;
+	}
 
 	config->shadow_blur_sigma = value;
 

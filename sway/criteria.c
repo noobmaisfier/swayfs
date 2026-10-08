@@ -65,6 +65,33 @@ static bool generate_regex(pcre2_code **regex, char *value) {
 	return true;
 }
 
+static bool is_regex_literal(const char *value) {
+	// No regex metachars -> plain substring search via strstr is enough.
+	// pcre2 "foo" matches substring, same as strstr.
+	for (const char *p = value; *p; p++) {
+		switch (*p) {
+		case '.':
+		case '*':
+		case '+':
+		case '?':
+		case '[':
+		case ']':
+		case '(':
+		case ')':
+		case '|':
+		case '^':
+		case '$':
+		case '\\':
+		case '{':
+		case '}':
+			return false;
+		default:
+			break;
+		}
+	}
+	return true;
+}
+
 static bool pattern_create(struct pattern **pattern, char *value) {
 	*pattern = calloc(1, sizeof(struct pattern));
 	if (!*pattern) {
@@ -73,11 +100,25 @@ static bool pattern_create(struct pattern **pattern, char *value) {
 
 	if (strcmp(value, "__focused__") == 0) {
 		(*pattern)->match_type = PATTERN_FOCUSED;
+	} else if (is_regex_literal(value)) {
+		(*pattern)->match_type = PATTERN_LITERAL;
+		(*pattern)->literal = strdup(value);
+		(*pattern)->regex = NULL;
+		if (!(*pattern)->literal) {
+			sway_log(SWAY_ERROR, "Failed to allocate pattern literal");
+			free(*pattern);
+			*pattern = NULL;
+			return false;
+		}
 	} else {
 		(*pattern)->match_type = PATTERN_PCRE2;
 		if (!generate_regex(&(*pattern)->regex, value)) {
 			return false;
 		};
+		// Enable JIT for the compiled pattern when available.
+#if defined(PCRE2_JIT_COMPLETE)
+		pcre2_jit_compile((*pattern)->regex, PCRE2_JIT_COMPLETE);
+#endif
 	}
 	return true;
 }
@@ -87,6 +128,7 @@ static void pattern_destroy(struct pattern *pattern) {
 		if (pattern->regex) {
 			pcre2_code_free(pattern->regex);
 		}
+		free(pattern->literal);
 		free(pattern);
 	}
 }
@@ -113,10 +155,35 @@ void criteria_destroy(struct criteria *criteria) {
 }
 
 static int regex_cmp(const char *item, const pcre2_code *regex) {
+	if (!item || !regex) {
+		return -1;
+	}
+	if (item[0] == '\0') {
+		return -1;
+	}
 	pcre2_match_data *match_data = pcre2_match_data_create_from_pattern(regex, NULL);
+	if (!match_data) {
+		return -1;
+	}
 	int result = pcre2_match(regex, (PCRE2_SPTR)item, strlen(item), 0, 0, match_data, NULL);
 	pcre2_match_data_free(match_data);
 	return result;
+}
+
+static int pattern_match(const char *item, const struct pattern *pattern) {
+	if (!item || !pattern) {
+		return -1;
+	}
+	if (pattern->match_type == PATTERN_LITERAL) {
+		if (!pattern->literal || pattern->literal[0] == '\0') {
+			return 0;
+		}
+		if (item[0] == '\0') {
+			return -1;
+		}
+		return strstr(item, pattern->literal) ? 0 : -1;
+	}
+	return regex_cmp(item, pattern->regex);
 }
 
 #if WLR_HAS_XWAYLAND
@@ -171,7 +238,7 @@ static bool criteria_matches_container(struct criteria *criteria,
 		bool exists = false;
 		struct sway_container *con = container;
 		for (int i = 0; i < con->marks->length; ++i) {
-			if (regex_cmp(con->marks->items[i], criteria->con_mark->regex) >= 0) {
+			if (pattern_match(con->marks->items[i], criteria->con_mark) >= 0) {
 				exists = true;
 				break;
 			}
@@ -213,7 +280,8 @@ static bool criteria_matches_view(struct criteria *criteria,
 			}
 			break;
 		case PATTERN_PCRE2:
-			if (regex_cmp(title, criteria->title->regex) < 0) {
+		case PATTERN_LITERAL:
+			if (pattern_match(title, criteria->title) < 0) {
 				return false;
 			}
 			break;
@@ -233,7 +301,8 @@ static bool criteria_matches_view(struct criteria *criteria,
 			}
 			break;
 		case PATTERN_PCRE2:
-			if (regex_cmp(shell, criteria->shell->regex) < 0) {
+		case PATTERN_LITERAL:
+			if (pattern_match(shell, criteria->shell) < 0) {
 				return false;
 			}
 			break;
@@ -253,7 +322,8 @@ static bool criteria_matches_view(struct criteria *criteria,
 			}
 			break;
 		case PATTERN_PCRE2:
-			if (regex_cmp(app_id, criteria->app_id->regex) < 0) {
+		case PATTERN_LITERAL:
+			if (pattern_match(app_id, criteria->app_id) < 0) {
 				return false;
 			}
 			break;
@@ -273,7 +343,8 @@ static bool criteria_matches_view(struct criteria *criteria,
 			}
 			break;
 		case PATTERN_PCRE2:
-			if (regex_cmp(sandbox_engine, criteria->sandbox_engine->regex) < 0) {
+		case PATTERN_LITERAL:
+			if (pattern_match(sandbox_engine, criteria->sandbox_engine) < 0) {
 				return false;
 			}
 			break;
@@ -293,7 +364,8 @@ static bool criteria_matches_view(struct criteria *criteria,
 			}
 			break;
 		case PATTERN_PCRE2:
-			if (regex_cmp(sandbox_app_id, criteria->sandbox_app_id->regex) < 0) {
+		case PATTERN_LITERAL:
+			if (pattern_match(sandbox_app_id, criteria->sandbox_app_id) < 0) {
 				return false;
 			}
 			break;
@@ -313,7 +385,8 @@ static bool criteria_matches_view(struct criteria *criteria,
 			}
 			break;
 		case PATTERN_PCRE2:
-			if (regex_cmp(sandbox_instance_id, criteria->sandbox_instance_id->regex) < 0) {
+		case PATTERN_LITERAL:
+			if (pattern_match(sandbox_instance_id, criteria->sandbox_instance_id) < 0) {
 				return false;
 			}
 			break;
@@ -333,7 +406,8 @@ static bool criteria_matches_view(struct criteria *criteria,
 			}
 			break;
 		case PATTERN_PCRE2:
-			if (regex_cmp(tag, criteria->tag->regex) < 0) {
+		case PATTERN_LITERAL:
+			if (pattern_match(tag, criteria->tag) < 0) {
 				return false;
 			}
 			break;
@@ -365,7 +439,8 @@ static bool criteria_matches_view(struct criteria *criteria,
 			}
 			break;
 		case PATTERN_PCRE2:
-			if (regex_cmp(class, criteria->class->regex) < 0) {
+		case PATTERN_LITERAL:
+			if (pattern_match(class, criteria->class) < 0) {
 				return false;
 			}
 			break;
@@ -385,7 +460,8 @@ static bool criteria_matches_view(struct criteria *criteria,
 			}
 			break;
 		case PATTERN_PCRE2:
-			if (regex_cmp(instance, criteria->instance->regex) < 0) {
+		case PATTERN_LITERAL:
+			if (pattern_match(instance, criteria->instance) < 0) {
 				return false;
 			}
 			break;
@@ -405,7 +481,8 @@ static bool criteria_matches_view(struct criteria *criteria,
 			}
 			break;
 		case PATTERN_PCRE2:
-			if (regex_cmp(window_role, criteria->window_role->regex) < 0) {
+		case PATTERN_LITERAL:
+			if (pattern_match(window_role, criteria->window_role) < 0) {
 				return false;
 			}
 			break;
@@ -464,7 +541,8 @@ static bool criteria_matches_view(struct criteria *criteria,
 			}
 			break;
 		case PATTERN_PCRE2:
-			if (regex_cmp(ws->name, criteria->workspace->regex) < 0) {
+		case PATTERN_LITERAL:
+			if (pattern_match(ws->name, criteria->workspace) < 0) {
 				return false;
 			}
 			break;
@@ -483,6 +561,9 @@ static bool criteria_matches_view(struct criteria *criteria,
 list_t *criteria_for_view(struct sway_view *view, enum criteria_type types) {
 	list_t *criterias = config->criteria;
 	list_t *matches = create_list();
+	if (!criterias || criterias->length == 0) {
+		return matches;
+	}
 	for (int i = 0; i < criterias->length; ++i) {
 		struct criteria *criteria = criterias->items[i];
 		if ((criteria->type & types) && criteria_matches_view(criteria, view)) {

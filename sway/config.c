@@ -30,7 +30,7 @@
 #include "sway/tree/root.h"
 #include "sway/tree/workspace.h"
 #include "cairo_util.h"
-#include "pango.h"
+#include "sway/font.h"
 #include "stringop.h"
 #include "list.h"
 #include "log.h"
@@ -127,7 +127,7 @@ void free_config(struct sway_config *config) {
 		}
 		list_free(config->bars);
 	}
-	list_free(config->cmd_queue);
+	list_free_items_and_destroy(config->cmd_queue);
 	if (config->workspace_configs) {
 		for (int i = 0; i < config->workspace_configs->length; i++) {
 			free_workspace_config(config->workspace_configs->items[i]);
@@ -139,9 +139,6 @@ void free_config(struct sway_config *config) {
 			free_output_config(config->output_configs->items[i]);
 		}
 		list_free(config->output_configs);
-	}
-	if (config->swaybg_client != NULL) {
-		wl_client_destroy(config->swaybg_client);
 	}
 	if (config->input_configs) {
 		for (int i = 0; i < config->input_configs->length; i++) {
@@ -181,7 +178,7 @@ void free_config(struct sway_config *config) {
 	free(config->floating_scroll_left_cmd);
 	free(config->floating_scroll_right_cmd);
 	free(config->font);
-	free(config->swaybg_command);
+	sway_font_free(config->font_description);
 	free(config->swaynag_command);
 	free((char *)config->current_config_path);
 	free((char *)config->current_config);
@@ -259,7 +256,7 @@ static void config_defaults(struct sway_config *config) {
 	config->default_layout = L_NONE;
 	config->default_orientation = L_NONE;
 	if (!(config->font = strdup("monospace 10"))) goto cleanup;
-	config->font_description = pango_font_description_from_string(config->font);
+	config->font_description = sway_font_from_string(config->font);
 	config->urgent_timeout = 500;
 	config->focus_on_window_activation = FOWA_URGENT;
 	config->popup_during_fullscreen = POPUP_SMART;
@@ -299,8 +296,6 @@ static void config_defaults(struct sway_config *config) {
 	config->gaps_outer.left = 0;
 
 	if (!(config->active_bar_modifiers = create_list())) goto cleanup;
-
-	if (!(config->swaybg_command = strdup("swaybg"))) goto cleanup;
 
 	if (!(config->config_chain = create_list())) goto cleanup;
 	config->current_config_path = NULL;
@@ -370,7 +365,7 @@ static void config_defaults(struct sway_config *config) {
 
 	config->shadow_enabled = false;
 	config->shadows_on_csd_enabled = false;
-	config->shadow_blur_sigma = 20.0f;
+	config->shadow_blur_sigma = 15.0f;
 	config->shadow_offset_x = 0.0f;
 	config->shadow_offset_y = 0.0f;
 	color_to_rgba(config->shadow_color, 0x0000007F);
@@ -527,10 +522,6 @@ bool load_main_config(const char *file, bool is_active, bool validating) {
 		config->primary_selection = old_config->primary_selection;
 
 		if (!config->validating) {
-			if (old_config->swaybg_client != NULL) {
-				wl_client_destroy(old_config->swaybg_client);
-			}
-
 			if (old_config->swaynag_config_errors.client != NULL) {
 				wl_client_destroy(old_config->swaynag_config_errors.client);
 			}
@@ -572,8 +563,6 @@ bool load_main_config(const char *file, bool is_active, bool validating) {
 			input_manager_apply_seat_config(config->seat_configs->items[i]);
 		}
 		sway_switch_retrigger_bindings_for_all();
-
-		spawn_swaybg();
 
 		config->reloading = false;
 		if (is_active) {

@@ -5,8 +5,8 @@ animation_duration_ms 250
 blur disable
 # blur_xray enables wallpaper blurring without blurring windows below
 blur_xray disable
-blur_passes 4
-blur_radius 4
+blur_passes 2
+blur_radius 3
 # blur_noise <float value 0 - 1>
 # blur_brightness <float value 0 - 2>
 # blur_contrast <float value 0 - 2>
@@ -56,8 +56,10 @@ set $menu wmenu-run
 
 ### Output configuration
 #
-# Default wallpaper (more resolutions are available in @datadir@/backgrounds/sway/)
-output * bg @datadir@/backgrounds/sway/Sway_Wallpaper_Blue_1920x1080.png fill
+# Pas de wallpaper gere par sway (code swaybg supprime) : fond noir, 0 RAM.
+# Pour un fond, lance une app externe standalone (swaybg, swww,
+# hyprpaper, mpvpaper), par ex : exec swaybg -i ~/wallpaper.png -m fill
+# (plus de resolutions dans @datadir@/backgrounds/sway/ si default-wallpaper=true)
 #
 # Example configuration:
 #
@@ -260,19 +262,9 @@ bindsym $mod+r mode "resize"
 #
 # Status Bar:
 #
-# Read `man 5 sway-bar` for more information about this section.
-bar {
-    position top
-
-    # When the status_command prints a new line to stdout, swaybar updates.
-    # The default just shows the current date and time.
-    status_command while date +'%Y-%m-%d %X'; do sleep 1; done
-
-    colors {
-        statusline #ffffff
-        background #323232
-        inactive_workspace #32323200 #32323200 #5c5c5c
-    }
-}
+# swaybar supprime du build (economise 25-45M RSS + fork `sh/date`).
+# Pas de barre par defaut. Pour waybar/ironbar, lance-le en standalone
+# (exec waybar) ou pilote par sway : bar { swaybar_command waybar }
+# (le bloc `bar` de sway est conserve, seul le binaire swaybar est supprime).
 
 include @sysconfdir@/sway/config.d/*

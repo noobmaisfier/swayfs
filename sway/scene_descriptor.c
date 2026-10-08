@@ -57,6 +57,10 @@ static const struct wlr_addon_interface addon_interface = {
 
 bool scene_descriptor_assign(struct wlr_scene_node *node,
 		enum sway_scene_descriptor_type type, void *data) {
+	// Avoid leaking the previous descriptor on double-assign of the same
+	// type (e.g. SAVED_BUFFER, CONTAINER reparent paths).
+	scene_descriptor_destroy(node, type);
+
 	struct scene_descriptor *desc = calloc(1, sizeof(*desc));
 	if (!desc) {
 		sway_log(SWAY_ERROR, "Could not allocate a scene descriptor");

@@ -150,7 +150,6 @@ static void send_frame_done_iterator(struct wlr_scene_buffer *buffer,
 		int x, int y, void *user_data) {
 	struct send_frame_done_data *data = user_data;
 	struct sway_output *output = data->output;
-	int view_max_render_time = 0;
 
 	if (buffer->primary_output != data->output->scene_output) {
 		return;
@@ -161,7 +160,16 @@ static void send_frame_done_iterator(struct wlr_scene_buffer *buffer,
 		return;
 	}
 
+	// Fast-path: max_render_time disabled globally (default). The delayed
+	// timer path requires both output and view delays non-zero, so skip the
+	// parent walk entirely in the common case.
+	if (output->max_render_time == 0) {
+		wlr_scene_surface_send_frame_done(scene_surface, &data->when);
+		return;
+	}
+
 	struct wlr_scene_node *current = &buffer->node;
+	int view_max_render_time = 0;
 	while (true) {
 		struct sway_view *view = scene_descriptor_try_get(current,
 			SWAY_SCENE_DESC_VIEW);
@@ -299,10 +307,15 @@ void output_configure_scene(struct sway_output *output, struct wlr_scene_node *n
 		// We don't want to damage outputs that aren't our current output that
 		// we're configuring
 		if (output) {
-			buffer->filter_mode = get_scale_filter(output, buffer);
+			enum wlr_scale_filter_mode filter = get_scale_filter(output, buffer);
+			if (buffer->filter_mode != filter) {
+				buffer->filter_mode = filter;
+			}
 		}
 
-		wlr_scene_buffer_set_opacity(buffer, opacity);
+		if (buffer->opacity != opacity) {
+			wlr_scene_buffer_set_opacity(buffer, opacity);
+		}
 
 		if (wlr_layer_surface) {
 			configure_layer_shell_surface(buffer, wlr_layer_surface->data);
@@ -329,14 +342,27 @@ void output_configure_scene(struct sway_output *output, struct wlr_scene_node *n
 
 		int content_width = closest_con->animation_state.current_content_width;
 		int content_height = closest_con->animation_state.current_content_height;
-		wlr_scene_buffer_set_dest_size(buffer, MAX(content_width, 0), MAX(content_height, 0));
+		content_width = MAX(content_width, 0);
+		content_height = MAX(content_height, 0);
+		if (buffer->dst_width != content_width || buffer->dst_height != content_height) {
+			wlr_scene_buffer_set_dest_size(buffer, content_width, content_height);
+		}
 	} else if (node->type == WLR_SCENE_NODE_BLUR && closest_con) {
 		struct wlr_scene_blur *blur = wlr_scene_blur_from_node(node);
+
+		// Fast path: disabled blur costs nothing. Avoid touching
+		// strength/corner uniforms (each setter damages in scenefx).
+		if (!closest_con->blur_enabled) {
+			if (node->enabled) {
+				wlr_scene_node_set_enabled(node, false);
+			}
+			return;
+		}
 
 		bool should_optimize_blur = config->blur_xray || !could_container_overlap(closest_con);
 		wlr_scene_blur_set_should_only_blur_bottom_layer(blur, should_optimize_blur);
 		wlr_scene_blur_set_strength(blur, opacity);
-		wlr_scene_node_set_enabled(node, closest_con->blur_enabled);
+		wlr_scene_node_set_enabled(node, true);
 		wlr_scene_blur_set_corner_radii(blur, has_titlebar ?
 			corner_radii_bottom(corner_radius) : corner_radii_all(corner_radius));
 	}
@@ -367,16 +393,16 @@ static int output_repaint_timer_handler(void *data) {
 		return 0;
 	}
 
+	struct wlr_scene_output *scene_output = output->scene_output;
+	if (!wlr_scene_output_needs_frame(scene_output)) {
+		return 0;
+	}
+
 	output_configure_scene(output, &root->root_scene->tree.node, false, NULL);
 
 	struct wlr_scene_output_state_options opts = {
 		.color_transform = output->color_transform,
 	};
-
-	struct wlr_scene_output *scene_output = output->scene_output;
-	if (!wlr_scene_output_needs_frame(scene_output)) {
-		return 0;
-	}
 
 	struct wlr_output_state pending;
 	wlr_output_state_init(&pending);

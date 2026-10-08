@@ -100,6 +100,11 @@ static void handle_pointer_motion(struct sway_seat *seat, uint32_t time_msec) {
 	if (amount_y != 0) {
 		container_resize_tiled(e->v_con, e->edge_y, amount_y);
 	}
+	// Skip synchronous O(tree) commit when the pointer event produced
+	// no size delta (sub-pixel motion, edge clamp).
+	if (amount_x == 0 && amount_y == 0) {
+		return;
+	}
 	transaction_commit_dirty();
 }
 

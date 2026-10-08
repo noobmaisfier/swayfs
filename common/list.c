@@ -35,6 +35,31 @@ void list_add(list_t *list, void *item) {
 	list->items[list->length++] = item;
 }
 
+void list_shrink(list_t *list) {
+	if (!list || !list->items) {
+		return;
+	}
+	// Keep a small working set, release high-water mark after bursts
+	// (transactions, dirty_nodes, criteria matches).
+	if (list->capacity > 64 && list->length < list->capacity / 4) {
+		int target = list->length < 10 ? 10 : list->length * 2;
+		if (target < list->capacity) {
+			void *items = realloc(list->items, sizeof(void *) * target);
+			if (items) {
+				list->items = items;
+				list->capacity = target;
+			}
+		}
+	}
+}
+
+void list_clear(list_t *list) {
+	if (list) {
+		list->length = 0;
+		list_shrink(list);
+	}
+}
+
 void list_insert(list_t *list, int index, void *item) {
 	list_resize(list);
 	memmove(&list->items[index + 1], &list->items[index], sizeof(void*) * (list->length - index));

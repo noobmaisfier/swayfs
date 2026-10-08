@@ -9,8 +9,6 @@
 static const struct cmd_handler output_handlers[] = {
 	{ "adaptive_sync", output_cmd_adaptive_sync },
 	{ "allow_tearing", output_cmd_allow_tearing },
-	{ "background", output_cmd_background },
-	{ "bg", output_cmd_background },
 	{ "color_profile", output_cmd_color_profile },
 	{ "disable", output_cmd_disable },
 	{ "dpms", output_cmd_dpms },
@@ -104,21 +102,14 @@ struct cmd_results *cmd_output(int argc, char **argv) {
 	config->handler_context.leftovers.argc = 0;
 	config->handler_context.leftovers.argv = NULL;
 
-	bool background = output->background;
-
 	store_output_config(output);
 
 	if (config->reading) {
 		// When reading the config file, we wait till the end to do a single
-		// modeset and swaybg spawn.
+		// modeset.
 		return cmd_results_new(CMD_SUCCESS, NULL);
 	}
 	request_modeset();
-
-	if (background && !spawn_swaybg()) {
-		return cmd_results_new(CMD_FAILURE,
-			"Failed to apply background configuration");
-	}
 
 	return cmd_results_new(CMD_SUCCESS, NULL);
 

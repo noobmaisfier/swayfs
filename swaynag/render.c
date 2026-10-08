@@ -1,7 +1,9 @@
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 #include "cairo_util.h"
 #include "log.h"
-#include "pango.h"
+#include "sway/font.h"
 #include "pool-buffer.h"
 #include "swaynag/swaynag.h"
 #include "swaynag/types.h"
@@ -10,7 +12,7 @@
 static uint32_t render_message(cairo_t *cairo, struct swaynag *swaynag) {
 	int text_width, text_height;
 	get_text_size(cairo, swaynag->type->font_description, &text_width, &text_height, NULL,
-			1, true, "%s", swaynag->message);
+			1, false, "%s", swaynag->message);
 
 	int padding = swaynag->type->message_padding;
 
@@ -32,7 +34,7 @@ static void render_details_scroll_button(cairo_t *cairo,
 		struct swaynag *swaynag, struct swaynag_button *button) {
 	int text_width, text_height;
 	get_text_size(cairo, swaynag->type->font_description, &text_width, &text_height, NULL,
-			1, true, "%s", button->text);
+			1, false, "%s", button->text);
 
 	int border = swaynag->type->button_border_thickness;
 	int padding = swaynag->type->button_padding;
@@ -50,7 +52,7 @@ static void render_details_scroll_button(cairo_t *cairo,
 	cairo_set_source_u32(cairo, swaynag->type->button_text);
 	cairo_move_to(cairo, button->x + border + padding,
 			button->y + border + (button->height - text_height) / 2);
-	render_text(cairo, swaynag->type->font_description, 1, true,
+	render_text(cairo, swaynag->type->font_description, 1, false,
 			"%s", button->text);
 }
 
@@ -58,10 +60,10 @@ static int get_detailed_scroll_button_width(cairo_t *cairo,
 		struct swaynag *swaynag) {
 	int up_width, down_width, temp_height;
 	get_text_size(cairo, swaynag->type->font_description, &up_width, &temp_height, NULL,
-			1, true,
+			1, false,
 			"%s", swaynag->details.button_up.text);
 	get_text_size(cairo, swaynag->type->font_description, &down_width, &temp_height, NULL,
-			1, true,
+			1, false,
 			"%s", swaynag->details.button_down.text);
 
 	int text_width =  up_width > down_width ? up_width : down_width;
@@ -83,56 +85,87 @@ static uint32_t render_detailed(cairo_t *cairo, struct swaynag *swaynag,
 	swaynag->details.y = y + decor;
 	swaynag->details.width = width - decor * 2;
 
-	PangoLayout *layout = get_pango_layout(cairo, swaynag->type->font_description,
-			swaynag->details.message, 1, false);
-	pango_layout_set_width(layout,
-			(swaynag->details.width - padding * 2) * PANGO_SCALE);
-	pango_layout_set_wrap(layout, PANGO_WRAP_WORD_CHAR);
-	pango_layout_set_single_paragraph_mode(layout, false);
-	pango_cairo_update_layout(cairo, layout);
-	swaynag->details.total_lines = pango_layout_get_line_count(layout);
-
-	PangoLayoutLine *line;
-	line = pango_layout_get_line_readonly(layout, swaynag->details.offset);
-	gint offset = line->start_index;
-	const char *text = pango_layout_get_text(layout);
-	pango_layout_set_text(layout, text + offset, strlen(text) - offset);
-
-	int text_width, text_height;
-	pango_cairo_update_layout(cairo, layout);
-	pango_layout_get_pixel_size(layout, &text_width, &text_height);
+	int wrap_width = swaynag->details.width - padding * 2;
+	if (wrap_width < 20) {
+		wrap_width = 20;
+	}
+	struct sway_text_lines *wrapped = sway_text_wrap(
+		swaynag->type->font_description,
+		swaynag->details.message ? swaynag->details.message : "",
+		wrap_width);
+	swaynag->details.total_lines = wrapped ? (int)wrapped->count : 0;
 
 	bool show_buttons = swaynag->details.offset > 0;
 	int button_width = get_detailed_scroll_button_width(cairo, swaynag);
 	if (show_buttons) {
 		swaynag->details.width -= button_width;
-		pango_layout_set_width(layout,
-				(swaynag->details.width - padding * 2) * PANGO_SCALE);
+		sway_text_lines_free(wrapped);
+		wrap_width = swaynag->details.width - padding * 2;
+		if (wrap_width < 20) {
+			wrap_width = 20;
+		}
+		wrapped = sway_text_wrap(swaynag->type->font_description,
+			swaynag->details.message ? swaynag->details.message : "",
+			wrap_width);
 	}
 
-	uint32_t ideal_height;
-	do {
-		ideal_height = swaynag->details.y + text_height + decor + padding * 2;
-		if (ideal_height > SWAYNAG_MAX_HEIGHT) {
-			ideal_height = SWAYNAG_MAX_HEIGHT;
+	int line_h = 12, base = 9;
+	get_text_metrics(swaynag->type->font_description, &line_h, &base);
+	if (line_h <= 0) {
+		line_h = 12;
+	}
+	int text_height = (int)wrapped->count * line_h;
 
-			if (!show_buttons) {
-				show_buttons = true;
-				swaynag->details.width -= button_width;
-				pango_layout_set_width(layout,
-						(swaynag->details.width - padding * 2) * PANGO_SCALE);
+	uint32_t ideal_height = swaynag->details.y + text_height + decor + padding * 2;
+	if (ideal_height > SWAYNAG_MAX_HEIGHT) {
+		ideal_height = SWAYNAG_MAX_HEIGHT;
+		if (!show_buttons) {
+			show_buttons = true;
+			swaynag->details.width -= button_width;
+			sway_text_lines_free(wrapped);
+			wrap_width = swaynag->details.width - padding * 2;
+			if (wrap_width < 20) {
+				wrap_width = 20;
 			}
+			wrapped = sway_text_wrap(swaynag->type->font_description,
+				swaynag->details.message ? swaynag->details.message : "",
+				wrap_width);
+			text_height = (int)wrapped->count * line_h;
 		}
+	}
 
-		swaynag->details.height = ideal_height - swaynag->details.y - decor;
-		pango_layout_set_height(layout,
-				(swaynag->details.height - padding * 2) * PANGO_SCALE);
-		pango_layout_set_ellipsize(layout, PANGO_ELLIPSIZE_END);
-		pango_cairo_update_layout(cairo, layout);
-		pango_layout_get_pixel_size(layout, &text_width, &text_height);
-	} while (text_height != (swaynag->details.height - padding * 2));
-
-	swaynag->details.visible_lines = pango_layout_get_line_count(layout);
+	swaynag->details.height = ideal_height - swaynag->details.y - decor;
+	// Visible lines fit in height (last line ellipsized via truncation).
+	int max_lines = (swaynag->details.height - padding * 2) / (line_h > 0 ? line_h : 1);
+	if (max_lines < 1) {
+		max_lines = 1;
+	}
+	if ((int)wrapped->count > max_lines) {
+		// Truncate last visible line with ellipsis.
+		char *last = wrapped->lines[max_lines - 1];
+		size_t ll = strlen(last);
+		const char *ell = "...";
+		while (ll > 0) {
+			char *cand = malloc(ll + 4);
+			memcpy(cand, last, ll);
+			strcpy(cand + ll, ell);
+			int cw = 0;
+			get_text_size(NULL, swaynag->type->font_description,
+				&cw, NULL, NULL, 1, false, "%s", cand);
+			free(cand);
+			if (cw <= wrap_width) {
+				break;
+			}
+			ll--;
+		}
+		char *trunc = malloc(ll + 4);
+		memcpy(trunc, last, ll);
+		strcpy(trunc + ll, ell);
+		free(wrapped->lines[max_lines - 1]);
+		wrapped->lines[max_lines - 1] = trunc;
+	}
+	swaynag->details.visible_lines = max_lines < (int)wrapped->count ?
+		max_lines : (int)wrapped->count;
 
 	if (show_buttons) {
 		swaynag->details.button_up.x =
@@ -158,11 +191,19 @@ static uint32_t render_detailed(cairo_t *cairo, struct swaynag *swaynag,
 			swaynag->details.width, swaynag->details.height);
 	cairo_fill(cairo);
 
-	cairo_move_to(cairo, swaynag->details.x + padding,
-			swaynag->details.y + padding);
 	cairo_set_source_u32(cairo, swaynag->type->text);
-	pango_cairo_show_layout(cairo, layout);
-	g_object_unref(layout);
+	int line_y = swaynag->details.y + padding;
+	size_t start = swaynag->details.offset;
+	if (start > wrapped->count) {
+		start = wrapped->count;
+	}
+	for (int i = 0; i < max_lines && start + i < wrapped->count; i++) {
+		cairo_move_to(cairo, swaynag->details.x + padding, line_y);
+		render_text(cairo, swaynag->type->font_description, 1, false,
+			"%s", wrapped->lines[start + i]);
+		line_y += line_h;
+	}
+	sway_text_lines_free(wrapped);
 
 	return ideal_height;
 }
@@ -173,7 +214,7 @@ static uint32_t render_button(cairo_t *cairo, struct swaynag *swaynag,
 
 	int text_width, text_height;
 	get_text_size(cairo, swaynag->type->font_description, &text_width, &text_height, NULL,
-			1, true, "%s", button->text);
+			1, false, "%s", button->text);
 
 	int border = swaynag->type->button_border_thickness;
 	int padding = swaynag->type->button_padding;
@@ -201,7 +242,7 @@ static uint32_t render_button(cairo_t *cairo, struct swaynag *swaynag,
 
 	cairo_set_source_u32(cairo, swaynag->type->button_text);
 	cairo_move_to(cairo, button->x + padding, button->y + padding);
-	render_text(cairo, swaynag->type->font_description, 1, true,
+	render_text(cairo, swaynag->type->font_description, 1, false,
 			"%s", button->text);
 
 	*x = button->x - border;

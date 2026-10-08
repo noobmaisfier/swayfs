@@ -130,7 +130,6 @@ static const struct cmd_handler config_handlers[] = {
 	{ "include", cmd_include },
 	{ "primary_selection", cmd_primary_selection },
 	{ "scratchpad_minimize", cmd_scratchpad_minimize },
-	{ "swaybg_command", cmd_swaybg_command },
 	{ "swaynag_command", cmd_swaynag_command },
 	{ "workspace_layout", cmd_workspace_layout },
 	{ "xwayland", cmd_xwayland },

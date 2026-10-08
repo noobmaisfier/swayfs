@@ -1,5 +1,7 @@
 #include <stdlib.h>
 #include <strings.h>
+#include <float.h>
+#include <time.h>
 #include <wayland-server-core.h>
 #include <wlr/config.h>
 #include <wlr/render/wlr_renderer.h>
@@ -1151,18 +1153,19 @@ void view_update_title(struct sway_view *view, bool force) {
 
 	free(view->container->title);
 	free(view->container->formatted_title);
+	view->container->title = NULL;
+	view->container->formatted_title = NULL;
 
-	size_t len = parse_title_format(view->container, NULL);
-
+	// Single-pass: one format walk into a growable buffer.
+	char *formatted = parse_title_format_alloc(view->container);
+	if (!sway_assert(formatted, "Unable to allocate title string")) {
+		return;
+	}
+	size_t len = strlen(formatted);
 	if (len) {
-		char *buffer = calloc(len + 1, sizeof(char));
-		if (!sway_assert(buffer, "Unable to allocate title string")) {
-			return;
-		}
-
-		parse_title_format(view->container, buffer);
-		view->container->formatted_title = buffer;
+		view->container->formatted_title = formatted;
 	} else {
+		free(formatted);
 		view->container->formatted_title = NULL;
 	}
 
@@ -1177,7 +1180,18 @@ void view_update_title(struct sway_view *view, bool force) {
 		container_update_title_bar(view->container);
 	}
 
-	ipc_event_window(view->container, "title");
+	// Throttle window::title IPC: browsers/terminals can spam title updates
+	// at keystroke rate, each one serializing the full node tree to JSON.
+	// Cap to ~10Hz globally; state stays queryable via GET_TREE.
+	static struct timespec last_title_ipc = {0, 0};
+	struct timespec now;
+	clock_gettime(CLOCK_MONOTONIC, &now);
+	long elapsed_ms = (now.tv_sec - last_title_ipc.tv_sec) * 1000 +
+		(now.tv_nsec - last_title_ipc.tv_nsec) / 1000000;
+	if (force || elapsed_ms >= 100) {
+		last_title_ipc = now;
+		ipc_event_window(view->container, "title");
+	}
 
 	if (view->foreign_toplevel && title) {
 		wlr_foreign_toplevel_handle_v1_set_title(view->foreign_toplevel, title);
@@ -1304,6 +1318,22 @@ static void view_save_buffer_iterator(struct wlr_scene_buffer *buffer,
 void view_save_buffer(struct sway_view *view) {
 	if (!sway_assert(!view->saved_surface_tree, "Didn't expect saved buffer")) {
 		view_remove_saved_buffer(view);
+	}
+
+	// Guard peak VRAM/SHM: a 4K ARGB buffer is ~33MB pinned until ack.
+	// Skip saving for huge or invisible views; the transaction timeout will
+	// make progress anyway instead of pinning megabytes on hung clients.
+	if (view->content_tree && wl_list_empty(&view->content_tree->children)) {
+		return;
+	}
+	if (view->container) {
+		long w = view->container->current.width;
+		long h = view->container->current.height;
+		if (w > 0 && h > 0 && w * h > 3840L * 2160L) {
+			sway_log(SWAY_DEBUG, "Skipping saved buffer for large view %ldx%ld",
+				w, h);
+			return;
+		}
 	}
 
 	view->saved_surface_tree = wlr_scene_tree_create(view->scene_tree);

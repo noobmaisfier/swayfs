@@ -47,7 +47,7 @@ RUN <<EOF
     libsystemd-dev \
     scdoc \
     bash-completion \
-    libpango1.0-dev \
+    libfcft-dev libfontconfig-dev \
     libcairo2-dev \
     libxcb-ewmh-dev \
     libdisplay-info-dev \
