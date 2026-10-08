@@ -151,6 +151,21 @@ Arch packaging (PKGBUILD, AUR-ready) lives in
 [`packaging/aur/`](/packaging/aur). See
 [packaging/aur/README.md](/packaging/aur/README.md).
 
+To build and install the current release **without the AUR**, fetch the
+PKGBUILD with `curl` and let `makepkg` do the rest — the repository is public,
+so no account is needed:
+
+```sh
+mkdir -p ~/build/swayfs && cd ~/build/swayfs
+curl -fsSLO https://gitlab.com/alaminedion/swayfs/-/raw/stable/packaging/aur/swayfs/PKGBUILD
+curl -fsSLO https://gitlab.com/alaminedion/swayfs/-/raw/stable/packaging/aur/swayfs/.SRCINFO
+makepkg -si
+```
+
+`makepkg` downloads the release archive from the tag, verifies its checksum,
+builds it and installs the resulting package (which replaces `sway`). Make sure
+`base-devel` is installed first.
+
 ### Container (Docker)
 
 To build SwayFX inside a container, install Docker and run the following commands from inside this repository:

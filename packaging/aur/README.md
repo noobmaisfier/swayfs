@@ -4,6 +4,18 @@
 official `[extra]` packages `scenefx` and `wlroots0.20` — no bundled or AUR
 dependency is required.
 
+## Quick start (no AUR account needed)
+
+The source repository is public, so you can fetch the packaging files with
+`curl` and build the current release directly:
+
+```sh
+mkdir -p ~/build/swayfs && cd ~/build/swayfs
+curl -fsSLO https://gitlab.com/alaminedion/swayfs/-/raw/stable/packaging/aur/swayfs/PKGBUILD
+curl -fsSLO https://gitlab.com/alaminedion/swayfs/-/raw/stable/packaging/aur/swayfs/.SRCINFO
+makepkg -si
+```
+
 ## Build locally
 
 The source repository is **public**:
