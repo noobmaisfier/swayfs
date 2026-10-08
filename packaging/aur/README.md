@@ -8,7 +8,7 @@ dependency is required.
 
 The source repository is **public**:
 <https://gitlab.com/alaminedion/swayfs>. Once the release tag
-`v0.6.swayfs.1` is pushed, makepkg downloads the archive itself:
+`v0.6.swayfs.2` is pushed, makepkg downloads the archive itself:
 
 ```sh
 cd packaging/aur/swayfs
@@ -20,8 +20,8 @@ create a source tarball with the exact expected name/prefix so makepkg skips
 the download:
 
 ```sh
-git -C ../../.. archive --format=tar.gz --prefix=swayfs-v0.6.swayfs.1/ \
-    -o swayfs-v0.6.swayfs.1.tar.gz HEAD
+git -C ../../.. archive --format=tar.gz --prefix=swayfs-v0.6.swayfs.2/ \
+    -o swayfs-v0.6.swayfs.2.tar.gz HEAD
 
 makepkg -od          # source download/verification/extraction only
 sudo pacman -S --needed --asdeps base-devel scenefx
@@ -30,7 +30,7 @@ makepkg -si          # full build + install
 
 ## Release checklist
 
-1. Tag the validated `stable` commit, e.g. `v0.6.swayfs.1`, and push the tag.
+1. Tag the validated `stable` commit, e.g. `v0.6.swayfs.2`, and push the tag.
 2. Refresh the checksum (replace the `sha256sums=('SKIP')` line):
    ```sh
    cd packaging/aur/swayfs
@@ -60,7 +60,7 @@ publicly fetchable sources over **SSH**:
    cp packaging/aur/swayfs/{PKGBUILD,.SRCINFO} swayfs/
    cd swayfs
    git add PKGBUILD .SRCINFO
-   git commit -m "Initial import: swayfs 0.6.swayfs.1-1"
+   git commit -m "Initial import: swayfs 0.6.swayfs.2-1"
    git push
    ```
 3. Optional VCS package `swayfs-git` follows the same model with

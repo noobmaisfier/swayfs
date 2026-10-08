@@ -12,8 +12,8 @@
 # with `makepkg -g` after (re)tagging.
 
 pkgname=swayfs
-pkgver=0.6.swayfs.1
-pkgrel=3
+pkgver=0.6.swayfs.2
+pkgrel=1
 pkgdesc="SwayFX fork focused on low RAM/CPU usage (no swaybar/swaybg, fcft instead of pango)"
 arch=('x86_64')
 url="https://gitlab.com/alaminedion/swayfs"
@@ -61,7 +61,7 @@ conflicts=('sway' 'swayfx' 'swayfx-git' 'swayfs-git')
 backup=('etc/sway/config')
 
 source=("$pkgname-$_tag.tar.gz::https://gitlab.com/alaminedion/swayfs/-/archive/$_tag/$pkgname-$_tag.tar.gz")
-sha256sums=('e35854d24bb324903d73266b0400c48f99a9fc72e0405070525754f18c24d88a')
+sha256sums=('abe1c4d4666e278de7cd0616d49c3f4317b443d90156fffd47651c366f969dca')
 
 build() {
   arch-meson "$pkgname-$_tag" build -Dwerror=false -Dman-pages=enabled
