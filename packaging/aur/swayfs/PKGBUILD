@@ -12,7 +12,7 @@
 
 pkgname=swayfs
 pkgver=0.6.swayfs.1
-pkgrel=1
+pkgrel=2
 pkgdesc="SwayFX fork focused on low RAM/CPU usage (no swaybar/swaybg, fcft instead of pango)"
 arch=('x86_64')
 url="https://gitlab.com/alaminedion/swayfs"

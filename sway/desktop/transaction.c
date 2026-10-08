@@ -473,8 +473,12 @@ static void arrange_children(enum sway_container_layout layout, list_t *children
 			arrange_title_bar(child, title_offset, -title_bar_height,
 				next_title_offset - title_offset, title_bar_height);
 			wlr_scene_node_set_enabled(&child->border.tree->node, activated);
-			wlr_scene_node_set_enabled(&child->blur->node, activated);
-			wlr_scene_node_set_enabled(&child->shadow->node, false);
+			if (child->blur) {
+				wlr_scene_node_set_enabled(&child->blur->node, activated);
+			}
+			if (child->shadow) {
+				wlr_scene_node_set_enabled(&child->shadow->node, false);
+			}
 			wlr_scene_node_set_enabled(&child->scene_tree->node, true);
 			wlr_scene_node_reparent(&child->scene_tree->node, content);
 
@@ -504,8 +508,12 @@ static void arrange_children(enum sway_container_layout layout, list_t *children
 
 			arrange_title_bar(child, 0, y - title_height, width, title_bar_height);
 			wlr_scene_node_set_enabled(&child->border.tree->node, activated);
-			wlr_scene_node_set_enabled(&child->blur->node, activated);
-			wlr_scene_node_set_enabled(&child->shadow->node, false);
+			if (child->blur) {
+				wlr_scene_node_set_enabled(&child->blur->node, activated);
+			}
+			if (child->shadow) {
+				wlr_scene_node_set_enabled(&child->shadow->node, false);
+			}
 			wlr_scene_node_set_enabled(&child->scene_tree->node, true);
 			wlr_scene_node_reparent(&child->scene_tree->node, content);
 
@@ -525,9 +533,13 @@ static void arrange_children(enum sway_container_layout layout, list_t *children
 			int cheight = child->current.height;
 
 			wlr_scene_node_set_enabled(&child->border.tree->node, true);
-			wlr_scene_node_set_enabled(&child->blur->node, true);
-			wlr_scene_node_set_enabled(&child->shadow->node,
-					container_has_shadow(child) && child->view);
+			if (child->blur) {
+				wlr_scene_node_set_enabled(&child->blur->node, true);
+			}
+			if (child->shadow) {
+				wlr_scene_node_set_enabled(&child->shadow->node,
+						container_has_shadow(child) && child->view);
+			}
 			wlr_scene_node_reparent(&child->scene_tree->node, content);
 			if (width > 0 && cheight > 0) {
 				arrange_container(child, width, cheight, 0, off, true, gaps);
@@ -543,9 +555,13 @@ static void arrange_children(enum sway_container_layout layout, list_t *children
 			int cwidth = child->current.width;
 
 			wlr_scene_node_set_enabled(&child->border.tree->node, true);
-			wlr_scene_node_set_enabled(&child->blur->node, true);
-			wlr_scene_node_set_enabled(&child->shadow->node,
-					container_has_shadow(child) && child->view);
+			if (child->blur) {
+				wlr_scene_node_set_enabled(&child->blur->node, true);
+			}
+			if (child->shadow) {
+				wlr_scene_node_set_enabled(&child->shadow->node,
+						container_has_shadow(child) && child->view);
+			}
 			wlr_scene_node_reparent(&child->scene_tree->node, content);
 			if (cwidth > 0 && height > 0) {
 				arrange_container(child, cwidth, height, off, 0, true, gaps);
@@ -914,7 +930,10 @@ static void arrange_workspace_floating(struct sway_workspace *ws) {
 
 		wlr_scene_node_reparent(&floater->scene_tree->node, layer);
 		wlr_scene_node_set_enabled(&floater->scene_tree->node, true);
-		wlr_scene_node_set_enabled(&floater->shadow->node, container_has_shadow(floater) && floater->view);
+		if (floater->shadow) {
+			wlr_scene_node_set_enabled(&floater->shadow->node,
+					container_has_shadow(floater) && floater->view);
+		}
 		wlr_scene_node_set_enabled(&floater->border.tree->node, true);
 
 		arrange_container(floater, floater->current.width, floater->current.height,
