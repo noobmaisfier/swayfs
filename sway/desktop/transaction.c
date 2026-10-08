@@ -776,6 +776,11 @@ static void _arrange_container(struct sway_container *con,
 	}
 }
 
+// Set while arranging a workspace that was off screen on the previous frame.
+// Such a workspace has no meaningful "from" geometry to animate out of: see
+// the comment in arrange_output().
+static bool arrange_from_offscreen = false;
+
 static void arrange_container(struct sway_container *con,
 		int width, int height, int x, int y, bool title_bar, int gaps) {
 	if (!config->animation_duration_ms || !con->view
@@ -812,6 +817,17 @@ static void arrange_container(struct sway_container *con,
 		con->animation_state.from_height = height * POPIN_FACTOR;
 		con->animation_state.from_alpha = 0.0f;
 		add_animation(&con->animation_state.animation, anim_update_callback, NULL);
+	} else if (arrange_from_offscreen) {
+		// The container's scene geometry is whatever it was when the workspace
+		// was last on screen, so there is nothing to animate from. Snap.
+		finish_animation(&con->animation_state.animation);
+		con->animation_state.from_x = x;
+		con->animation_state.from_y = y;
+		con->animation_state.from_width = width;
+		con->animation_state.from_height = height;
+		con->animation_state.from_alpha = 1.0f;
+		_arrange_container(con, width, height, x, y, title_bar, gaps);
+		return;
 	} else {
 		// move animation
 		snap_animation_position(con);
@@ -936,15 +952,42 @@ static void arrange_output(struct sway_output *output, int width, int height) {
 	struct sway_workspace *new_active = output->current.active_workspace;
 	struct sway_workspace *old_active = output->prev_active_workspace;
 
-	bool is_ws_switch = old_active && old_active != new_active
+	// A workspace moved to another output is still this output's
+	// prev_active_workspace, but it is no longer ours to fade out: the
+	// destination output arranges it as its active workspace, fading it in
+	// from alpha zero. Whichever output arrange_root visits second wins, so
+	// when the destination comes first in root->outputs the fade-out started
+	// here overwrites the fade-in and the workspace stays at alpha zero on
+	// its new output - present, arranged, and invisible until the next
+	// workspace switch there re-runs the fade. Treat it like an empty old
+	// workspace instead: fade the incoming one in and leave the departed one
+	// to the output that now owns it.
+	bool old_moved_away = old_active && old_active->current.output != output;
+
+	bool is_ws_switch = old_active && new_active && old_active != new_active
 		&& output->wlr_output->enabled && config->animation_duration_ms > 0 &&
 		!(old_active->current.fullscreen || new_active->current.fullscreen);
+
+	// arrange_output only arranges the workspace that is on screen, so a
+	// hidden one keeps the scene geometry it had when it was last shown -
+	// including the size of an output it no longer lives on, since
+	// output_disable() evacuates workspaces to a surviving output and only the
+	// tree-level arrange_root() follows. Animating from that stale geometry
+	// makes the workspace resize itself in front of the user on the first
+	// frame after the switch. It is not a move the user performed, so there is
+	// nothing to animate: snap to the geometry the tree already agreed on and
+	// let the fade below do the rest. Sampled here because the fade
+	// initializes new_active's animation, which is also how a workspace that
+	// is still fading out - and therefore does have valid scene geometry -
+	// is told apart from one that was off screen.
+	bool new_active_offscreen = new_active && new_active != old_active
+		&& !new_active->animation_state.animation.initialized;
 
 	if (is_ws_switch) {
 		new_active->animation_state.from_alpha = 0.0f;
 
-		if (old_active->current.tiling->length == 0
-				&& old_active->current.floating->length == 0) {
+		if (old_moved_away || (old_active->current.tiling->length == 0
+				&& old_active->current.floating->length == 0)) {
 			new_active->animation_state.to_alpha = 1.0f;
 			add_animation(&new_active->animation_state.animation,
 				workspace_fade_update_callback, NULL);
@@ -993,6 +1036,9 @@ static void arrange_output(struct sway_output *output, int width, int height) {
 		}
 
 		if (activated) {
+			// child is new_active here; see new_active_offscreen above.
+			arrange_from_offscreen = new_active_offscreen;
+
 			struct sway_container *fs = child->current.fullscreen;
 			wlr_scene_node_set_enabled(&child->layers.tiling->node, !fs);
 			wlr_scene_node_set_enabled(&child->layers.fullscreen->node, fs);
@@ -1022,6 +1068,8 @@ static void arrange_output(struct sway_output *output, int width, int height) {
 					area->height - gaps->top - gaps->bottom);
 				arrange_workspace_floating(child);
 			}
+
+			arrange_from_offscreen = false;
 		} else if (animating && !activated) {
 			// Workspace fading out - keep visible, alpha handled by render path
 			struct wlr_box *area = &output->usable_area;

@@ -411,7 +411,8 @@ runtime.
 
 animation_duration_ms <value>
 	Determines the duration of the animation applied to opening and closing
-	windows, between 0 (no animation) and 5000 (5 seconds).
+	windows and to workspace switches,
+	between 0 (no animation) and 5000 (5 seconds).
 
 *assign* <criteria> [→] [workspace] [number] <workspace>
 	Assigns windows matching _criteria_ (see *CRITERIA* for details) to

@@ -314,6 +314,30 @@ void workspace_begin_destroy(struct sway_workspace *workspace) {
 	if (workspace->output) {
 		workspace_detach(workspace);
 	}
+	// A workspace that is being destroyed can still be referenced by outputs
+	// (enabled or disabled): arrange_output() reads prev_active_workspace and
+	// the committed current.active_workspace / current.workspaces, and
+	// transaction_destroy() frees the workspace before a later arrange in the
+	// same commit cycle can run. Clear every such reference so no dangling
+	// pointer is dereferenced (heap-use-after-free in arrange_output: the
+	// output re-enabled after `output <name> disable` keeps a stale
+	// prev_active_workspace otherwise). Iterate all_outputs, not outputs:
+	// disabled outputs are not in root->outputs yet still carry state.
+	struct sway_output *output = NULL;
+	wl_list_for_each(output, &root->all_outputs, link) {
+		if (output->prev_active_workspace == workspace) {
+			output->prev_active_workspace = NULL;
+		}
+		if (output->current.active_workspace == workspace) {
+			output->current.active_workspace = NULL;
+		}
+		if (output->current.workspaces) {
+			int index = list_find(output->current.workspaces, workspace);
+			if (index != -1) {
+				list_del(output->current.workspaces, index);
+			}
+		}
+	}
 	node_set_dirty(&workspace->node);
 	workspace->node.destroying = true;
 }
