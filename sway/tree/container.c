@@ -171,6 +171,17 @@ void container_ensure_blur(struct sway_container *con) {
 		return;
 	}
 	wlr_scene_node_set_enabled(&con->blur->node, con->blur_enabled);
+
+	// alloc_scene_blur() appends the node, i.e. it lands on *top* of the
+	// title bar and content (render order == list order, first child at the
+	// bottom). The eager path in container_create() instead builds
+	// blur, shadow, title bar, border from bottom to top. Re-place the node
+	// to keep blur under the shadow (if any) and under the title bar.
+	if (con->shadow) {
+		wlr_scene_node_place_below(&con->blur->node, &con->shadow->node);
+	} else {
+		wlr_scene_node_place_below(&con->blur->node, &con->title_bar.tree->node);
+	}
 }
 
 void container_ensure_shadow(struct sway_container *con) {
@@ -183,7 +194,12 @@ void container_ensure_shadow(struct sway_container *con) {
 	if (failed || !con->shadow) {
 		sway_log(SWAY_ERROR, "Failed to allocate lazy shadow node");
 		con->shadow = NULL;
+		return;
 	}
+
+	// See container_ensure_blur(): put the shadow under the title bar (and
+	// thus under the content) instead of on top of everything.
+	wlr_scene_node_place_below(&con->shadow->node, &con->title_bar.tree->node);
 }
 
 static bool container_is_focused(struct sway_container *con, void *data) {

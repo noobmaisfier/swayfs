@@ -1012,17 +1012,24 @@ static void arrange_output(struct sway_output *output, int width, int height) {
 				workspace_fade_update_callback, NULL);
 		} else {
 			new_active->animation_state.to_alpha = 0.0f;
-			float current_alpha = get_animated_value(old_active->animation_state.from_alpha,
-				old_active->animation_state.to_alpha, &old_active->animation_state.animation);
-			old_active->animation_state.from_alpha = current_alpha;
-			old_active->animation_state.to_alpha = 0.0f;
+
+			// #593: only fade out an old workspace that is still ours. A
+			// workspace that moved to another output must not be faded out
+			// here - its alpha now belongs to the output showing it.
+			if (old_active->current.output == output) {
+				float current_alpha = get_animated_value(old_active->animation_state.from_alpha,
+					old_active->animation_state.to_alpha, &old_active->animation_state.animation);
+				old_active->animation_state.from_alpha = current_alpha;
+				old_active->animation_state.to_alpha = 0.0f;
+
+				add_animation(&old_active->animation_state.animation,
+					workspace_fade_update_callback, workspace_fade_complete_callback);
+			}
 
 			finish_animation(&new_active->animation_state.animation);
 			new_active->animation_state.from_alpha = 0.0f;
 			new_active->animation_state.to_alpha = 1.0f;
 
-			add_animation(&old_active->animation_state.animation,
-				workspace_fade_update_callback, workspace_fade_complete_callback);
 			add_animation(&new_active->animation_state.animation,
 				workspace_fade_update_callback, workspace_fade_complete_callback);
 		}
@@ -1034,9 +1041,12 @@ static void arrange_output(struct sway_output *output, int width, int height) {
 		new_active->animation_state.from_alpha = 1.0f;
 		new_active->animation_state.to_alpha = 1.0f;
 
-		finish_animation(&old_active->animation_state.animation);
-		old_active->animation_state.from_alpha = 1.0f;
-		old_active->animation_state.to_alpha = 0.0f;
+		// #591: do not fade out a workspace that moved to another output.
+		if (!old_moved_away) {
+			finish_animation(&old_active->animation_state.animation);
+			old_active->animation_state.from_alpha = 1.0f;
+			old_active->animation_state.to_alpha = 0.0f;
+		}
 	}
 
 	for (int i = 0; i < output->current.workspaces->length; i++) {
