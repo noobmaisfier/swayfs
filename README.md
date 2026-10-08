@@ -21,6 +21,33 @@ For Fedora users, SwayFX is also available in [copr](https://copr.fedorainfraclo
 
 [Join our Discord](https://discord.gg/qsSx397rkh)
 
+## swayfs fork
+
+This is a personal fork (`swayfs`) of [wlrfx/swayfx](https://github.com/wlrfx/swayfx)
+focused on low RAM and CPU usage:
+
+- `swaybar` and the built-in `swaybg` integration are removed — use an external
+  bar (e.g. waybar) and a standalone wallpaper daemon (swaybg, swww, hyprpaper);
+- `pango` is replaced by `fcft`;
+- hot paths (transactions, IPC, text rendering, seat operations) are optimized.
+
+| branch | purpose |
+|--------|---------|
+| `master` | mirror of `upstream/master`; never committed to directly |
+| `dev` | integration branch where development happens |
+| `stable` | validated, production-ready releases |
+
+Keeping in sync with upstream:
+
+```sh
+git fetch upstream
+git checkout master && git merge --ff-only upstream/master
+git checkout dev && git merge master
+```
+
+CI (`.gitlab-ci.yml`) builds in an Arch container against pinned `scenefx` /
+`wlroots` and runs an ASan/UBSan headless smoke test (`ci/asan-smoke.sh`).
+
 ## New Configuration Options
 
 + Animations: `animation_duration_ms <integer value 0-5000>`
