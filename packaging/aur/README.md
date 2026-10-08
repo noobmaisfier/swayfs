@@ -6,15 +6,20 @@ dependency is required.
 
 ## Build locally
 
-The source repository is currently **private**, so makepkg's `source` URL (the
-GitLab archive of tag `v0.6.swayfs.1`) is not reachable anonymously. Two ways
-to build/test meanwhile:
+The source repository is **public**:
+<https://gitlab.com/alaminedion/swayfs>. Once the release tag
+`v0.6.swayfs.1` is pushed, makepkg downloads the archive itself:
 
 ```sh
 cd packaging/aur/swayfs
+makepkg -si
+```
 
-# 1. create a local source tarball with the exact expected name/dir, so
-#    makepkg skips the (unreachable) download
+To build from a local working tree instead (for example before re-tagging),
+create a source tarball with the exact expected name/prefix so makepkg skips
+the download:
+
+```sh
 git -C ../../.. archive --format=tar.gz --prefix=swayfs-v0.6.swayfs.1/ \
     -o swayfs-v0.6.swayfs.1.tar.gz HEAD
 
@@ -22,9 +27,6 @@ makepkg -od          # source download/verification/extraction only
 sudo pacman -S --needed --asdeps base-devel scenefx
 makepkg -si          # full build + install
 ```
-
-Once the tag is pushed and the repository (or a public mirror) is reachable,
-makepkg downloads the archive itself and the local tarball is unnecessary.
 
 ## Release checklist
 
@@ -65,5 +67,5 @@ publicly fetchable sources over **SSH**:
    `source=("$pkgname::git+https://gitlab.com/alaminedion/swayfs.git#branch=dev")`
    and a `pkgver()` function.
 
-> Prerequisite: the source must be public. A private GitLab project cannot be
-> fetched by makepkg on other people's machines.
+> The source repository is public, so makepkg can fetch the release archive on
+> any machine.

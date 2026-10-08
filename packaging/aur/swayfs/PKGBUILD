@@ -6,9 +6,10 @@
 # Arch packages `scenefx` and `wlroots0.20` (both in [extra]), so no bundled
 # or AUR dependency is required.
 #
-# NOTE: the source repository is currently private. Before publishing to the
-# AUR, make the project (or a public mirror) reachable, push the release tag,
-# then refresh sha256sums with `makepkg -g`.
+# The source repository is public:
+#   https://gitlab.com/alaminedion/swayfs
+# The release archive is fetched from tag `v<pkgver>`; keep sha256sums in sync
+# with `makepkg -g` after (re)tagging.
 
 pkgname=swayfs
 pkgver=0.6.swayfs.1
@@ -60,9 +61,7 @@ conflicts=('sway' 'swayfx' 'swayfx-git' 'swayfs-git')
 backup=('etc/sway/config')
 
 source=("$pkgname-$_tag.tar.gz::https://gitlab.com/alaminedion/swayfs/-/archive/$_tag/$pkgname-$_tag.tar.gz")
-# TODO(release): replace SKIP with `makepkg -g` output once the tag is pushed
-# (and the repository/mirror is public).
-sha256sums=('SKIP')
+sha256sums=('e35854d24bb324903d73266b0400c48f99a9fc72e0405070525754f18c24d88a')
 
 build() {
   arch-meson "$pkgname-$_tag" build -Dwerror=false -Dman-pages=enabled

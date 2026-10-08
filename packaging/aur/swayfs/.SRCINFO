@@ -43,6 +43,6 @@ pkgbase = swayfs
 	conflicts = swayfs-git
 	backup = etc/sway/config
 	source = swayfs-v0.6.swayfs.1.tar.gz::https://gitlab.com/alaminedion/swayfs/-/archive/v0.6.swayfs.1/swayfs-v0.6.swayfs.1.tar.gz
-	sha256sums = SKIP
+	sha256sums = e35854d24bb324903d73266b0400c48f99a9fc72e0405070525754f18c24d88a
 
 pkgname = swayfs
