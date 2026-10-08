@@ -28,7 +28,7 @@ default:
       wayland wayland-protocols libxkbcommon libinput libdrm libxcb xcb-util-wm
       json-c pcre2 cairo fcft fontconfig libevdev pixman
       libdisplay-info seatd hwdata mesa libglvnd vulkan-headers vulkan-icd-loader
-      lcms2 scdoc
+      lcms2 scdoc foot grim jq python
     - git config --global --add safe.directory '*'
     - bash ci/fetch-subprojects.sh
 
@@ -42,7 +42,8 @@ check:
     - test -f meson.build
     - test -f ci/asan-smoke.sh
     - bash -n ci/fetch-subprojects.sh ci/asan-smoke.sh
-    - bash -n packaging/aur/swayfs/PKGBUILD
+    - bash -n ci/render-smoke.sh packaging/aur/swayfs/PKGBUILD
+    - python3 -m py_compile ci/ppm-stats.py
     - echo "check OK"
 
 build:
@@ -65,3 +66,16 @@ test:asan:
     - meson setup build-asan -Db_lto=false -Db_sanitize=address,undefined -Db_ndebug=false -Dwlroots:werror=false -Dscenefx:werror=false
     - ninja -C build-asan
     - bash ci/asan-smoke.sh build-asan
+
+# Rendering regression test: drives a real client on a nested headless sway and
+# inspects the framebuffer with grim. Catches the workspace-fade class of bugs
+# (e.g. a populated workspace left fully transparent after visiting an empty
+# one) that IPC-only tests cannot see. Skips when no DRM render node is present
+# (scenefx has no pixman fallback), so it is a no-op on shared runners.
+test:render:
+  stage: test
+  dependencies: []
+  script:
+    - meson setup build-render --buildtype=release -Dwlroots:werror=false -Dscenefx:werror=false
+    - ninja -C build-render
+    - bash ci/render-smoke.sh build-render
