@@ -34,8 +34,9 @@ default:
 
 check:
   stage: check
-  before_script: []
   cache: {}
+  before_script:
+    - pacman -Sy --noconfirm --needed git
   script:
     - git diff --check
     - test -f meson.build
