@@ -6,8 +6,13 @@ dependency is required.
 
 ## Quick start (no AUR account needed)
 
-The source repository is public, so you can fetch the packaging files with
-`curl` and build the current release directly:
+The source repository is public. The fastest way is the convenience installer:
+
+```sh
+curl -fsSL https://gitlab.com/alaminedion/swayfs/-/raw/stable/packaging/aur/install.sh | sh
+```
+
+Or fetch the packaging files yourself and build:
 
 ```sh
 mkdir -p ~/build/swayfs && cd ~/build/swayfs

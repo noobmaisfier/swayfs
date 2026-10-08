@@ -151,9 +151,22 @@ Arch packaging (PKGBUILD, AUR-ready) lives in
 [`packaging/aur/`](/packaging/aur). See
 [packaging/aur/README.md](/packaging/aur/README.md).
 
-To build and install the current release **without the AUR**, fetch the
-PKGBUILD with `curl` and let `makepkg` do the rest — the repository is public,
-so no account is needed:
+To install the current release **without the AUR**, run the convenience
+installer — the repository is public, so no account is needed:
+
+```sh
+curl -fsSL https://gitlab.com/alaminedion/swayfs/-/raw/stable/packaging/aur/install.sh | sh
+```
+
+It fetches the PKGBUILD, then `makepkg` downloads the release archive from the
+tag, verifies its checksum, builds and installs the package (which replaces
+`sway`). Make sure `base-devel` is installed. You can inspect the script first:
+
+```sh
+curl -fsSL https://gitlab.com/alaminedion/swayfs/-/raw/stable/packaging/aur/install.sh | less
+```
+
+Or do it by hand:
 
 ```sh
 mkdir -p ~/build/swayfs && cd ~/build/swayfs
@@ -161,10 +174,6 @@ curl -fsSLO https://gitlab.com/alaminedion/swayfs/-/raw/stable/packaging/aur/swa
 curl -fsSLO https://gitlab.com/alaminedion/swayfs/-/raw/stable/packaging/aur/swayfs/.SRCINFO
 makepkg -si
 ```
-
-`makepkg` downloads the release archive from the tag, verifies its checksum,
-builds it and installs the resulting package (which replaces `sway`). Make sure
-`base-devel` is installed first.
 
 ### Container (Docker)
 
