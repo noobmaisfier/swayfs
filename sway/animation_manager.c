@@ -46,7 +46,10 @@ static int animation_timer() {
 			+ (now.tv_nsec - animation->start_time.tv_nsec) / 1000000.0f;
 		animation->progress = duration > 0.0f ?
 			MIN(elapsed / duration, 1.0f) : 1.0f;
-		animation->multiplier = ease_out_cubic(animation->progress);
+		// Clamp: float rounding in ease_out_cubic() can overshoot by 1 ulp
+		// (measured up to 1.00000012), and scenefx asserts opacity in [0, 1].
+		animation->multiplier =
+			MAX(0.0f, MIN(ease_out_cubic(animation->progress), 1.0f));
 
 		if (animation->update) {
 			animation->update(animation->data);

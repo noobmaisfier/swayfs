@@ -313,6 +313,12 @@ void output_configure_scene(struct sway_output *output, struct wlr_scene_node *n
 			}
 		}
 
+		// scenefx asserts opacity is within [0, 1], but float rounding in
+		// ease_out_cubic()/lerp() can overshoot by 1 ulp mid-animation
+		// (measured up to 1.00000012), which would abort the compositor.
+		// Same clamp idiom as container_update().
+		opacity = MAX(0.0f, MIN(1.0f, opacity));
+
 		if (buffer->opacity != opacity) {
 			wlr_scene_buffer_set_opacity(buffer, opacity);
 		}
