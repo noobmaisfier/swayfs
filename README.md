@@ -33,16 +33,15 @@ focused on low RAM and CPU usage:
 
 | branch | purpose |
 |--------|---------|
-| `main` | mirror of `upstream/master`; never committed to directly |
-| `dev` | integration branch where development happens |
+| `main` | primary branch (default); day-to-day work lands here, CI builds it |
+| `dev` | staging area for larger changes; promoted to `main` when ready |
 | `stable` | validated, production-ready releases |
 
 Keeping in sync with upstream:
 
 ```sh
 git fetch upstream
-git checkout main && git merge --ff-only upstream/master
-git checkout dev && git merge main
+git checkout main && git merge upstream/master
 ```
 
 CI (`.github/workflows/build.yml`, runs on `main` only) builds in Arch and
@@ -146,28 +145,30 @@ nix develop
 
 Check [INSTALL-deb.md](/INSTALL-deb.md)
 
-### Arch Linux
+### Arch Linux & Debian
 
-Arch packaging (PKGBUILD, AUR-ready) lives in
-[`packaging/aur/`](/packaging/aur). See
-[packaging/aur/README.md](/packaging/aur/README.md).
-
-To install the current release **without the AUR**, run the convenience
-installer — the repository is public, so no account is needed:
+One installer covers both distributions (it auto-detects Arch vs
+Debian/Ubuntu) — the repository is public, so no account is needed:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/stable/packaging/aur/install.sh | sh
 ```
 
-It fetches the PKGBUILD, then `makepkg` downloads the release archive from the
-tag, verifies its checksum, builds and installs the package (which replaces
-`sway`). Make sure `base-devel` is installed. You can inspect the script first:
+- **Arch:** fetches the PKGBUILD, then `makepkg` downloads the release
+  archive from the tag, verifies its checksum, builds and installs the
+  package (which replaces `sway`). Make sure `base-devel` is installed.
+- **Debian/Ubuntu:** installs build dependencies with `apt`, builds the
+  pinned `wlroots`/`scenefx` as meson subprojects (Debian doesn't ship
+  them), then builds and installs swayfs to `/usr/local`. See
+  [INSTALL-deb.md](/INSTALL-deb.md) for the manual steps.
+
+You can inspect the script first:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/stable/packaging/aur/install.sh | less
 ```
 
-Or do it by hand:
+Or do it by hand on Arch:
 
 ```sh
 mkdir -p ~/build/swayfs && cd ~/build/swayfs

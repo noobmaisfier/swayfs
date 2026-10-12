@@ -1,0 +1,73 @@
+name: build
+
+# Validation builds for the supported distros. Runs on `main` only:
+# `dev` is validated by promotion to `main`, `stable` only takes what
+# `main` already built green.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  WLR_TAG: "0.20.2"
+  SCENEFX_TAG: "0.5"
+
+jobs:
+  arch:
+    name: Arch Linux (system scenefx + wlroots0.20)
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          pacman -Sy --noconfirm --needed \
+            base-devel meson ninja pkgconf git \
+            wayland wayland-protocols libxkbcommon libinput libdrm libxcb xcb-util-wm \
+            json-c pcre2 cairo fcft fontconfig libevdev pixman \
+            libdisplay-info seatd hwdata mesa libglvnd lcms2 scdoc \
+            scenefx wlroots0.20
+      - name: Configure
+        run: arch-meson . build -Dwerror=false -Dman-pages=enabled
+      - name: Compile
+        run: meson compile -C build
+      - name: Upload sway binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: swayfs-arch-x86_64
+          path: build/sway/sway
+
+  debian:
+    name: Debian stable (wlroots + scenefx from source)
+    runs-on: ubuntu-latest
+    container: debian:stable-slim
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        # Same list as INSTALL-deb.md: Debian has no wlroots-0.20/scenefx
+        # packages, so both are built as meson subprojects (see next step).
+        run: |
+          apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            ca-certificates git meson ninja-build gcc pkg-config scdoc \
+            wayland-protocols libwayland-dev libpcre2-dev libjson-c-dev \
+            libfcft-dev \
+            libfontconfig-dev libfreetype-dev libcairo2-dev \
+            libdrm-dev libgbm-dev libinput-dev libevdev-dev libseat-dev libxkbcommon-dev \
+            libxcb-dri3-dev libxcb-present-dev libxcb-res0-dev \
+            libxcb-render-util0-dev libxcb-ewmh-dev libxcb-icccm4-dev \
+            libliftoff-dev libdisplay-info-dev liblcms2-dev libpixman-1-dev \
+            libegl-dev libgles-dev hwdata libudev-dev
+      - name: Fetch pinned subprojects
+        run: |
+          git config --global --add safe.directory '*'
+          bash ci/fetch-subprojects.sh
+      - name: Configure
+        run: meson setup build -Dwerror=false -Dman-pages=enabled
+      - name: Compile
+        run: meson compile -C build
+      - name: Upload sway binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: swayfs-debian-x86_64
+          path: build/sway/sway

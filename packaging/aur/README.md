@@ -6,7 +6,8 @@ dependency is required.
 
 ## Quick start (no AUR account needed)
 
-The source repository is public. The fastest way is the convenience installer:
+The source repository is public. The fastest way is the convenience installer
+(it auto-detects Arch vs Debian/Ubuntu):
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/stable/packaging/aur/install.sh | sh

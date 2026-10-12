@@ -1,5 +1,12 @@
 # A guide to installing SwayFX on Debian 13 (Trixie/Sid)
 
+> **swayfs note:** the automated installer does all of this for you on
+> Debian/Ubuntu (and Arch):
+> `curl -fsSL https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/stable/packaging/aur/install.sh | sh`
+> The manual steps below remain the reference. They apply to swayfs as well —
+> just clone `https://github.com/noobmaisfier/swayfs` instead of upstream
+> SwayFX.
+
 > **Note:** This guide targets **SwayFX 0.6** (based on Sway 1.12). It manually builds the required dependencies (**wlroots 0.20.2** and **scenefx 0.5**) using Meson subprojects to ensure compatibility and stability.
 
 ## 1\. Install Dependencies
