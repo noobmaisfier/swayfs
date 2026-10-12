@@ -56,6 +56,20 @@ require_cmd() {
 }
 
 install_arch() {
+	# Bootstrap curl if missing (downloading the PKGBUILD needs it).
+	if ! command -v curl >/dev/null 2>&1; then
+		if ! command -v pacman >/dev/null 2>&1; then
+			echo "swayfs: required command not found: curl" >&2
+			exit 1
+		fi
+		echo "swayfs: installing curl..."
+		$SUDO pacman -Sy --noconfirm --needed curl
+	fi
+	# base-devel provides makepkg (auto-install for a true one-shot setup).
+	if ! command -v "$MAKEPKG" >/dev/null 2>&1; then
+		echo "swayfs: installing base-devel (provides $MAKEPKG)..."
+		$SUDO pacman -Sy --noconfirm --needed base-devel
+	fi
 	for c in curl "$MAKEPKG"; do require_cmd "$c"; done
 
 	missing=""
@@ -63,9 +77,9 @@ install_arch() {
 		command -v "$c" >/dev/null 2>&1 || missing="$missing $c"
 	done
 	if [ -n "$missing" ]; then
-		echo "swayfs: missing build tools:$missing. Install them first:" >&2
-		echo "  sudo pacman -S --needed base-devel" >&2
-		exit 1
+		echo "swayfs: installing base-devel (missing:$missing)..."
+		$SUDO pacman -Sy --noconfirm --needed base-devel
+		for c in gcc make fakeroot; do require_cmd "$c"; done
 	fi
 
 	tmp="$(mktemp -d)"
@@ -81,14 +95,26 @@ install_arch() {
 }
 
 install_debian() {
-	for c in curl git gcc; do require_cmd "$c"; done
+	# Bootstrap: apt + (root or sudo) + network tools come first, since a
+	# minimal container/netinstall may lack even curl and git.
+	if [ "$(id -u)" -ne 0 ] && ! command -v sudo >/dev/null 2>&1; then
+		echo "swayfs: run as root or install sudo first." >&2
+		exit 1
+	fi
+	if ! command -v curl >/dev/null 2>&1 || ! command -v git >/dev/null 2>&1; then
+		echo "swayfs: installing bootstrap tools (curl, git)..."
+		$SUDO apt-get update
+		$SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+			ca-certificates curl git
+	fi
+	for c in curl git; do require_cmd "$c"; done
 	echo "swayfs: installing build dependencies with apt..."
 	# apt dependency list mirrors INSTALL-deb.md and .github/workflows/build.yml.
 	# Debian ships neither wlroots-0.20 nor scenefx, so both are built as
 	# pinned meson subprojects (ci/fetch-subprojects.sh).
 	$SUDO apt-get update
 	# shellcheck disable=SC2086
-	$SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+	$SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
 		ca-certificates git meson ninja-build gcc pkg-config scdoc bison python3-jinja2 \
 		wayland-protocols libwayland-dev libpcre2-dev libjson-c-dev \
 		libfcft-dev \
@@ -106,8 +132,16 @@ install_debian() {
 	cd "$tmp"
 
 	echo "swayfs: fetching branch '$BRANCH' tarball..."
-	curl -fsSL -o swayfs.tar.gz "https://github.com/$REPO/archive/refs/heads/$BRANCH.tar.gz"
-	tar -xzf swayfs.tar.gz
+	if [ -n "${SWAYFS_SRC_DIR:-}" ]; then
+		# Dev/test hook: build a local tree instead of downloading the
+		# branch tarball (tracked files only, subprojects excluded).
+		echo "swayfs: using local source $SWAYFS_SRC_DIR (SWAYFS_SRC_DIR set)..."
+		mkdir -p "swayfs-$BRANCH"
+		git -C "$SWAYFS_SRC_DIR" -c safe.directory='*' archive HEAD | tar -x -C "swayfs-$BRANCH"
+	else
+		curl -fsSL -o swayfs.tar.gz "https://github.com/$REPO/archive/refs/heads/$BRANCH.tar.gz"
+		tar -xzf swayfs.tar.gz
+	fi
 	cd "swayfs-$BRANCH"
 
 	echo "swayfs: fetching pinned wlroots/scenefx subprojects..."
@@ -118,7 +152,10 @@ install_debian() {
 
 	echo "swayfs: building..."
 	# Per-subproject werror=false, see .github/workflows/build.yml.
-	meson setup build -Dwerror=false -Dman-pages=enabled \
+	# --libdir=lib: meson's Debian default (lib64 triplet path) is in
+	# neither ldconfig's nor pkg-config's default search path; /usr/local/lib
+	# is in both, so the subproject libraries are found at runtime.
+	meson setup build --prefix=/usr/local --libdir=lib -Dwerror=false -Dman-pages=enabled \
 		-Dwlroots:werror=false -Dscenefx:werror=false -Dwayland:werror=false \
 		-Dwayland-protocols:werror=false -Dlibdrm:werror=false \
 		-Dlibxkbcommon:werror=false
@@ -126,6 +163,17 @@ install_debian() {
 
 	echo "swayfs: installing to /usr/local ($SUDO meson install)..."
 	$SUDO meson install -C build
+	# Register the multiarch lib dir: meson installs subproject libraries to
+	# /usr/local/lib/<triplet>, which ldconfig does not index by default.
+	if [ -d /usr/local/lib/x86_64-linux-gnu ]; then
+		echo "/usr/local/lib/x86_64-linux-gnu" | $SUDO tee /etc/ld.so.conf.d/swayfs-local.conf >/dev/null
+	fi
+	$SUDO ldconfig || true
+
+	echo "swayfs: installing runtime dependencies..."
+	$SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+		libgl1 libegl1 libgles2 libgbm1 mesa-vulkan-drivers \
+		libgl1-mesa-dri fonts-dejavu-core
 
 	if ! command -v sway >/dev/null 2>&1 && [ -x /usr/local/bin/sway ]; then
 		echo "swayfs: note: /usr/local/bin is not on your PATH in this shell." >&2

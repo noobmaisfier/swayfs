@@ -113,8 +113,9 @@ Now we build everything in one go. Meson will detect the code in `subprojects/` 
 
 ```bash
 # Configure the build (per-subproject werror=false: wlroots/scenefx force
-# werror=true, which GCC 14 trips over)
-meson setup build/ -Dwerror=false -Dwlroots:werror=false -Dscenefx:werror=false \
+# werror=true, which GCC 14 trips over; --libdir=lib so the subproject
+# libraries land where ldconfig and pkg-config find them by default)
+meson setup build/ --prefix=/usr/local --libdir=lib -Dwerror=false -Dwlroots:werror=false -Dscenefx:werror=false \
   -Dwayland:werror=false -Dwayland-protocols:werror=false -Dlibdrm:werror=false \
   -Dlibxkbcommon:werror=false
 
