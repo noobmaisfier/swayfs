@@ -115,7 +115,11 @@ install_debian() {
 	$SUDO bash ci/install-pixman-prefix.sh
 
 	echo "swayfs: building..."
-	meson setup build -Dwerror=false -Dman-pages=enabled
+	# Per-subproject werror=false, see .github/workflows/build.yml.
+	meson setup build -Dwerror=false -Dman-pages=enabled \
+		-Dwlroots:werror=false -Dscenefx:werror=false -Dwayland:werror=false \
+		-Dwayland-protocols:werror=false -Dlibdrm:werror=false \
+		-Dlibxkbcommon:werror=false
 	meson compile -C build
 
 	echo "swayfs: installing to /usr/local ($SUDO meson install)..."

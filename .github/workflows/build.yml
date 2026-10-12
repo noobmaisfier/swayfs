@@ -67,7 +67,14 @@ jobs:
         # (Debian stable ships 0.44); see ci/install-pixman-prefix.sh.
         run: bash ci/install-pixman-prefix.sh
       - name: Configure
-        run: meson setup build -Dwerror=false -Dman-pages=enabled
+        # Per-subproject werror=false: wlroots/scenefx force werror=true in
+        # their defaults, which GCC 14 trips over (e.g. unused 'box' in
+        # wlroots render/pass.c). Our own code keeps -Dwerror=false.
+        run: >-
+          meson setup build -Dwerror=false -Dman-pages=enabled
+          -Dwlroots:werror=false -Dscenefx:werror=false -Dwayland:werror=false
+          -Dwayland-protocols:werror=false -Dlibdrm:werror=false
+          -Dlibxkbcommon:werror=false
       - name: Compile
         run: meson compile -C build
       - name: Upload sway binary
