@@ -15,7 +15,7 @@ Debian Trixie requires a specific set of development headers, particularly for t
 
 ```bash
 sudo apt update && sudo apt install -y \
-  meson pkg-config cmake git scdoc bison \
+  meson pkg-config cmake git scdoc bison python3-jinja2 \
   wayland-protocols libwayland-dev libpcre2-dev libjson-c-dev \
   libfcft-dev libfontconfig-dev libfreetype-dev libcairo2-dev \
   libdrm-dev libgbm-dev libinput-dev libseat-dev libxkbcommon-dev \
@@ -50,25 +50,31 @@ cd wayland
 git checkout 1.24.0
 cd ..
 
-# 4. Clone libxkbcommon 1.9.2 (Debian Trixie ships 1.7, wlroots needs >= 1.8)
+# 4. Clone wayland-protocols 1.47 (Debian Trixie ships 1.44, wlroots needs >= 1.47)
+git clone https://gitlab.freedesktop.org/wayland/wayland-protocols.git wayland-protocols
+cd wayland-protocols
+git checkout 1.47
+cd ..
+
+# 5. Clone libxkbcommon 1.9.2 (Debian Trixie ships 1.7, wlroots needs >= 1.8)
 git clone https://github.com/xkbcommon/libxkbcommon.git libxkbcommon
 cd libxkbcommon
 git checkout xkbcommon-1.9.2
 cd ..
 
-# 5. Clone libdrm 2.4.134 (Debian Trixie ships 2.4.124, wlroots needs >= 2.4.129)
+# 6. Clone libdrm 2.4.134 (Debian Trixie ships 2.4.124, wlroots needs >= 2.4.129)
 git clone https://gitlab.freedesktop.org/mesa/drm.git libdrm
 cd libdrm
 git checkout libdrm-2.4.134
 cd ..
 
-# 6. Clone SceneFX 0.5 (The Rendering FX Library)
+# 7. Clone SceneFX 0.5 (The Rendering FX Library)
 git clone https://github.com/wlrfx/scenefx.git
 cd scenefx
 git checkout 0.5
 cd ..
 
-# 7. Clone Wlroots 0.20.2 (The Wayland Compositor Backend)
+# 8. Clone Wlroots 0.20.2 (The Wayland Compositor Backend)
 git clone https://gitlab.freedesktop.org/wlroots/wlroots.git
 cd wlroots
 git checkout 0.20.2
@@ -83,6 +89,7 @@ Your directory structure should now look like this:
 ~/build/swayfx
 └── subprojects
     ├── wayland (v1.24.0)
+    ├── wayland-protocols (v1.47)
     ├── libxkbcommon (v1.9.2)
     ├── libdrm (v2.4.134)
     ├── scenefx (v0.5)
