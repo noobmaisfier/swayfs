@@ -12,10 +12,12 @@ stages:
 variables:
   WAYLAND_TAG: "1.24.0"
   LIBDRM_TAG: "libdrm-2.4.134"
+  LIBXKBCOMMON_TAG: "xkbcommon-1.9.2"
   WLR_TAG: "0.20.2"
   SCENEFX_TAG: "0.5"
   SKIP_WAYLAND: "1"
   SKIP_LIBDRM: "1"
+  SKIP_LIBXKBCOMMON: "1"
   GIT_DEPTH: "50"
 
 default:

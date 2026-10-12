@@ -89,7 +89,7 @@ install_debian() {
 	$SUDO apt-get update
 	# shellcheck disable=SC2086
 	$SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-		ca-certificates git meson ninja-build gcc pkg-config scdoc \
+		ca-certificates git meson ninja-build gcc pkg-config scdoc bison \
 		wayland-protocols libwayland-dev libpcre2-dev libjson-c-dev \
 		libfcft-dev \
 		libfontconfig-dev libfreetype-dev libcairo2-dev \

@@ -9,6 +9,7 @@ cd "$(dirname "$0")/.."
 
 : "${WAYLAND_TAG:=1.24.0}"
 : "${LIBDRM_TAG:=libdrm-2.4.134}"
+: "${LIBXKBCOMMON_TAG:=xkbcommon-1.9.2}"
 : "${WLR_TAG:=0.20.0}"
 : "${SCENEFX_TAG:=0.5}"
 
@@ -22,6 +23,12 @@ if [ -z "${SKIP_LIBDRM:-}" ] && [ ! -d subprojects/libdrm ]; then
 	echo "Cloning libdrm $LIBDRM_TAG (Debian stable ships < 2.4.129)"
 	git clone --depth 1 -b "$LIBDRM_TAG" \
 		https://gitlab.freedesktop.org/mesa/drm.git subprojects/libdrm
+fi
+
+if [ -z "${SKIP_LIBXKBCOMMON:-}" ] && [ ! -d subprojects/libxkbcommon ]; then
+	echo "Cloning libxkbcommon $LIBXKBCOMMON_TAG (Debian stable ships < 1.8)"
+	git clone --depth 1 -b "$LIBXKBCOMMON_TAG" \
+		https://github.com/xkbcommon/libxkbcommon.git subprojects/libxkbcommon
 fi
 
 if [ ! -d subprojects/wlroots ]; then
