@@ -50,13 +50,19 @@ cd wayland
 git checkout 1.24.0
 cd ..
 
-# 4. Clone SceneFX 0.5 (The Rendering FX Library)
+# 4. Clone libdrm 2.4.134 (Debian Trixie ships 2.4.124, wlroots needs >= 2.4.129)
+git clone https://gitlab.freedesktop.org/mesa/drm.git libdrm
+cd libdrm
+git checkout libdrm-2.4.134
+cd ..
+
+# 5. Clone SceneFX 0.5 (The Rendering FX Library)
 git clone https://github.com/wlrfx/scenefx.git
 cd scenefx
 git checkout 0.5
 cd ..
 
-# 5. Clone Wlroots 0.20.2 (The Wayland Compositor Backend)
+# 6. Clone Wlroots 0.20.2 (The Wayland Compositor Backend)
 git clone https://gitlab.freedesktop.org/wlroots/wlroots.git
 cd wlroots
 git checkout 0.20.2
@@ -71,6 +77,7 @@ Your directory structure should now look like this:
 ~/build/swayfx
 └── subprojects
     ├── wayland (v1.24.0)
+    ├── libdrm (v2.4.134)
     ├── scenefx (v0.5)
     └── wlroots (v0.20.2)
 ```

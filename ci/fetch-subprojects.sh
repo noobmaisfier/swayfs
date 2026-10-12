@@ -1,12 +1,14 @@
 #!/bin/bash
-# Fetch the pinned build dependencies (wayland + wlroots + scenefx) into
-# subprojects/. Meson is configured with wrap_mode=nodownload, so these must
-# be present. Distros with recent system libraries (e.g. Arch) simply ignore
-# the subprojects whose system dependency already satisfies the version.
+# Fetch the pinned build dependencies (wayland + libdrm + wlroots + scenefx)
+# into subprojects/. Meson is configured with wrap_mode=nodownload, so these
+# must be present. Distros with recent system libraries (e.g. Arch) simply
+# ignore the subprojects whose system dependency already satisfies the
+# version (set SKIP_WAYLAND/SKIP_LIBDRM=1 to skip cloning entirely).
 set -eu
 cd "$(dirname "$0")/.."
 
 : "${WAYLAND_TAG:=1.24.0}"
+: "${LIBDRM_TAG:=libdrm-2.4.134}"
 : "${WLR_TAG:=0.20.0}"
 : "${SCENEFX_TAG:=0.5}"
 
@@ -14,6 +16,12 @@ if [ -z "${SKIP_WAYLAND:-}" ] && [ ! -d subprojects/wayland ]; then
 	echo "Cloning wayland $WAYLAND_TAG (Debian stable ships < 1.24)"
 	git clone --depth 1 -b "$WAYLAND_TAG" \
 		https://gitlab.freedesktop.org/wayland/wayland.git subprojects/wayland
+fi
+
+if [ -z "${SKIP_LIBDRM:-}" ] && [ ! -d subprojects/libdrm ]; then
+	echo "Cloning libdrm $LIBDRM_TAG (Debian stable ships < 2.4.129)"
+	git clone --depth 1 -b "$LIBDRM_TAG" \
+		https://gitlab.freedesktop.org/mesa/drm.git subprojects/libdrm
 fi
 
 if [ ! -d subprojects/wlroots ]; then
