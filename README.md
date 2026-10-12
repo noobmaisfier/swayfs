@@ -33,7 +33,7 @@ focused on low RAM and CPU usage:
 
 | branch | purpose |
 |--------|---------|
-| `master` | mirror of `upstream/master`; never committed to directly |
+| `main` | mirror of `upstream/master`; never committed to directly |
 | `dev` | integration branch where development happens |
 | `stable` | validated, production-ready releases |
 
@@ -41,13 +41,14 @@ Keeping in sync with upstream:
 
 ```sh
 git fetch upstream
-git checkout master && git merge --ff-only upstream/master
-git checkout dev && git merge master
+git checkout main && git merge --ff-only upstream/master
+git checkout dev && git merge main
 ```
 
-CI (`.gitlab-ci.yml`) builds in an Arch container against pinned `scenefx` /
-`wlroots` and runs an ASan/UBSan headless smoke test (`ci/asan-smoke.sh`) plus a
-framebuffer rendering regression test (`ci/render-smoke.sh`).
+CI (`.github/workflows/build.yml`, runs on `main` only) builds in Arch and
+Debian containers against pinned `scenefx` / `wlroots` and runs an
+ASan/UBSan headless smoke test (`ci/asan-smoke.sh`) plus a framebuffer
+rendering regression test (`ci/render-smoke.sh`).
 
 ### Memory footprint
 
@@ -155,7 +156,7 @@ To install the current release **without the AUR**, run the convenience
 installer — the repository is public, so no account is needed:
 
 ```sh
-curl -fsSL https://gitlab.com/alaminedion/swayfs/-/raw/stable/packaging/aur/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/stable/packaging/aur/install.sh | sh
 ```
 
 It fetches the PKGBUILD, then `makepkg` downloads the release archive from the
@@ -163,15 +164,15 @@ tag, verifies its checksum, builds and installs the package (which replaces
 `sway`). Make sure `base-devel` is installed. You can inspect the script first:
 
 ```sh
-curl -fsSL https://gitlab.com/alaminedion/swayfs/-/raw/stable/packaging/aur/install.sh | less
+curl -fsSL https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/stable/packaging/aur/install.sh | less
 ```
 
 Or do it by hand:
 
 ```sh
 mkdir -p ~/build/swayfs && cd ~/build/swayfs
-curl -fsSLO https://gitlab.com/alaminedion/swayfs/-/raw/stable/packaging/aur/swayfs/PKGBUILD
-curl -fsSLO https://gitlab.com/alaminedion/swayfs/-/raw/stable/packaging/aur/swayfs/.SRCINFO
+curl -fsSLO https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/stable/packaging/aur/swayfs/PKGBUILD
+curl -fsSLO https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/stable/packaging/aur/swayfs/.SRCINFO
 makepkg -si
 ```
 

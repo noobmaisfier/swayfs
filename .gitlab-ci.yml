@@ -2,7 +2,7 @@
 #
 # Builds sway(fx) in an Arch container against pinned wlroots/scenefx, then
 # runs the ASan/UBSan headless smoke test. The dev branch is what we develop
-# on; master mirrors upstream; stable holds validated releases.
+# on; main mirrors upstream; stable holds validated releases.
 
 stages:
   - check

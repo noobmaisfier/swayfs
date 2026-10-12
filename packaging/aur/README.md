@@ -9,22 +9,22 @@ dependency is required.
 The source repository is public. The fastest way is the convenience installer:
 
 ```sh
-curl -fsSL https://gitlab.com/alaminedion/swayfs/-/raw/stable/packaging/aur/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/stable/packaging/aur/install.sh | sh
 ```
 
 Or fetch the packaging files yourself and build:
 
 ```sh
 mkdir -p ~/build/swayfs && cd ~/build/swayfs
-curl -fsSLO https://gitlab.com/alaminedion/swayfs/-/raw/stable/packaging/aur/swayfs/PKGBUILD
-curl -fsSLO https://gitlab.com/alaminedion/swayfs/-/raw/stable/packaging/aur/swayfs/.SRCINFO
+curl -fsSLO https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/stable/packaging/aur/swayfs/PKGBUILD
+curl -fsSLO https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/stable/packaging/aur/swayfs/.SRCINFO
 makepkg -si
 ```
 
 ## Build locally
 
 The source repository is **public**:
-<https://gitlab.com/alaminedion/swayfs>. Once the release tag
+<https://github.com/noobmaisfier/swayfs>. Once the release tag
 `v0.6.swayfs.2` is pushed, makepkg downloads the archive itself:
 
 ```sh
@@ -81,7 +81,7 @@ publicly fetchable sources over **SSH**:
    git push
    ```
 3. Optional VCS package `swayfs-git` follows the same model with
-   `source=("$pkgname::git+https://gitlab.com/alaminedion/swayfs.git#branch=dev")`
+   `source=("$pkgname::git+https://github.com/noobmaisfier/swayfs.git#branch=dev")`
    and a `pkgver()` function.
 
 > The source repository is public, so makepkg can fetch the release archive on

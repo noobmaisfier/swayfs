@@ -7,16 +7,16 @@
 # or AUR dependency is required.
 #
 # The source repository is public:
-#   https://gitlab.com/alaminedion/swayfs
+#   https://github.com/noobmaisfier/swayfs
 # The release archive is fetched from tag `v<pkgver>`; keep sha256sums in sync
 # with `makepkg -g` after (re)tagging.
 
 pkgname=swayfs
 pkgver=0.6.swayfs.3
-pkgrel=2
+pkgrel=3
 pkgdesc="SwayFX fork focused on low RAM/CPU usage (no swaybar/swaybg, fcft instead of pango)"
 arch=('x86_64')
-url="https://gitlab.com/alaminedion/swayfs"
+url="https://github.com/noobmaisfier/swayfs"
 license=('MIT')
 _tag="v${pkgver}"
 
@@ -60,19 +60,23 @@ provides=('sway' 'wayland-compositor')
 conflicts=('sway' 'swayfx' 'swayfx-git' 'swayfs-git')
 backup=('etc/sway/config')
 
-source=("$pkgname-$_tag.tar.gz::https://gitlab.com/alaminedion/swayfs/-/archive/$_tag/$pkgname-$_tag.tar.gz")
-sha256sums=('7b4b420ce34ea09b2302e3bd05a4ab184960a47a936b931a0adaa72b809fa004')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/noobmaisfier/swayfs/archive/refs/tags/$_tag.tar.gz")
+sha256sums=('4815353bb4425bc6503ff831e2b32bf80413eac89b74ab6f0acc390361f9ebbb')
+
+# NOTE: GitHub tag archives extract to $pkgname-$pkgver (no 'v' prefix),
+# unlike the previous GitLab archives ($pkgname-$_tag).
+_srcdir="$pkgname-$pkgver"
 
 build() {
   # Always start from a clean build dir: reusing a dir configured against a
   # previous release archive silently rebuilds the OLD sources (this shipped
   # a 0.6.swayfs.3-1 package containing the 0.6.swayfs.2 binary).
   rm -rf build
-  arch-meson "$pkgname-$_tag" build -Dwerror=false -Dman-pages=enabled
+  arch-meson "$_srcdir" build -Dwerror=false -Dman-pages=enabled
   meson compile -C build
 }
 
 package() {
   DESTDIR="$pkgdir" meson install -C build
-  install -Dm644 "$pkgname-$_tag/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 "$_srcdir/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }

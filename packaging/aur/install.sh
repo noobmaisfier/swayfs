@@ -7,7 +7,7 @@
 # PKGBUILD and its checksum live in this repository.
 #
 # Usage:
-#   curl -fsSL https://gitlab.com/alaminedion/swayfs/-/raw/stable/packaging/aur/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/stable/packaging/aur/install.sh | sh
 #
 # Environment:
 #   SWAYFS_BRANCH   branch to take the PKGBUILD from (default: stable)
@@ -15,7 +15,7 @@
 set -eu
 
 BRANCH="${SWAYFS_BRANCH:-stable}"
-BASE="https://gitlab.com/alaminedion/swayfs/-/raw/$BRANCH/packaging/aur/swayfs"
+BASE="https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/$BRANCH/packaging/aur/swayfs"
 MAKEPKG="${MAKEPKG:-makepkg}"
 
 if [ ! -f /etc/arch-release ]; then
