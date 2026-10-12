@@ -97,7 +97,7 @@ install_debian() {
 		libxcb-dri3-dev libxcb-present-dev libxcb-res0-dev \
 		libxcb-render-util0-dev libxcb-ewmh-dev libxcb-icccm4-dev \
 		libliftoff-dev libdisplay-info-dev liblcms2-dev libpixman-1-dev \
-		libegl-dev libgles-dev hwdata libudev-dev
+		libegl-dev libgles-dev hwdata libudev-dev libffi-dev libexpat1-dev libxml2-dev
 
 	tmp="$(mktemp -d)"
 	trap 'rm -rf "$tmp"' EXIT

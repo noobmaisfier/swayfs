@@ -22,7 +22,8 @@ sudo apt update && sudo apt install -y \
   libxcb-dri3-dev libxcb-present-dev libxcb-res0-dev \
   libxcb-render-util0-dev libxcb-ewmh-dev libxcb-icccm4-dev \
   libliftoff-dev libdisplay-info-dev liblcms2-dev libpixman-1-dev \
-  libgles2-mesa-dev hwdata libudev-dev
+  libgles2-mesa-dev hwdata libudev-dev \
+  libffi-dev libexpat1-dev libxml2-dev
 ```
 
 ## 2\. Setup Build Environment
@@ -43,13 +44,19 @@ git checkout 0.6
 mkdir subprojects
 cd subprojects
 
-# 3. Clone SceneFX 0.5 (The Rendering FX Library)
+# 3. Clone Wayland 1.24 (Debian Trixie ships 1.23, wlroots 0.20 needs >= 1.24)
+git clone https://gitlab.freedesktop.org/wayland/wayland.git
+cd wayland
+git checkout 1.24.0
+cd ..
+
+# 4. Clone SceneFX 0.5 (The Rendering FX Library)
 git clone https://github.com/wlrfx/scenefx.git
 cd scenefx
 git checkout 0.5
 cd ..
 
-# 4. Clone Wlroots 0.20.2 (The Wayland Compositor Backend)
+# 5. Clone Wlroots 0.20.2 (The Wayland Compositor Backend)
 git clone https://gitlab.freedesktop.org/wlroots/wlroots.git
 cd wlroots
 git checkout 0.20.2
@@ -63,6 +70,7 @@ Your directory structure should now look like this:
 ```text
 ~/build/swayfx
 └── subprojects
+    ├── wayland (v1.24.0)
     ├── scenefx (v0.5)
     └── wlroots (v0.20.2)
 ```

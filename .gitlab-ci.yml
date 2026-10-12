@@ -10,8 +10,10 @@ stages:
   - test
 
 variables:
+  WAYLAND_TAG: "1.24.0"
   WLR_TAG: "0.20.2"
   SCENEFX_TAG: "0.5"
+  SKIP_WAYLAND: "1"
   GIT_DEPTH: "50"
 
 default:
