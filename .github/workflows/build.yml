@@ -62,6 +62,10 @@ jobs:
         run: |
           git config --global --add safe.directory '*'
           bash ci/fetch-subprojects.sh
+      - name: Install pixman 0.46 to /usr/local
+        # wlroots 0.20 needs pixman >= 0.46 with no meson fallback
+        # (Debian stable ships 0.44); see ci/install-pixman-prefix.sh.
+        run: bash ci/install-pixman-prefix.sh
       - name: Configure
         run: meson setup build -Dwerror=false -Dman-pages=enabled
       - name: Compile

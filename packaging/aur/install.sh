@@ -111,6 +111,9 @@ install_debian() {
 	echo "swayfs: fetching pinned wlroots/scenefx subprojects..."
 	bash ci/fetch-subprojects.sh
 
+	echo "swayfs: installing pixman 0.46 to /usr/local (wlroots needs >= 0.46)..."
+	$SUDO bash ci/install-pixman-prefix.sh
+
 	echo "swayfs: building..."
 	meson setup build -Dwerror=false -Dman-pages=enabled
 	meson compile -C build

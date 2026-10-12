@@ -96,7 +96,16 @@ Your directory structure should now look like this:
     └── wlroots (v0.20.2)
 ```
 
-## 3\. Compile and Install
+## 3\. Install pixman 0.46 to /usr/local
+
+wlroots 0.20 unconditionally builds its pixman renderer, which requires
+pixman >= 0.46.0 with no meson fallback (Debian Trixie ships 0.44):
+
+```bash
+bash ci/install-pixman-prefix.sh
+```
+
+## 4\. Compile and Install
 
 Now we build everything in one go. Meson will detect the code in `subprojects/` and build it automatically.
 
