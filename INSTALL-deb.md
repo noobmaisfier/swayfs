@@ -21,9 +21,11 @@ sudo apt update && sudo apt install -y \
   libdrm-dev libgbm-dev libinput-dev libseat-dev libxkbcommon-dev \
   libxcb-dri3-dev libxcb-present-dev libxcb-res0-dev \
   libxcb-render-util0-dev libxcb-ewmh-dev libxcb-icccm4-dev \
+  libxcb1-dev libxcb-composite0-dev libxcb-render0-dev \
   libliftoff-dev libdisplay-info-dev liblcms2-dev libpixman-1-dev \
   libgles2-mesa-dev hwdata libudev-dev \
-  libffi-dev libexpat1-dev libxml2-dev
+  libffi-dev libexpat1-dev libxml2-dev \
+  libxcb-errors-dev libxcb-xinput-dev libvulkan-dev glslang-tools xwayland
 ```
 
 ## 2\. Setup Build Environment

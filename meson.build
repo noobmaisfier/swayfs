@@ -97,7 +97,7 @@ xcb_icccm = wlroots_features['xwayland'] ? dependency('xcb-icccm') : null_dep
 threads = dependency('threads') # for pthread_setschedparam and pthread_atfork
 
 conf_data = configuration_data()
-foreach sym : ['LIBINPUT_CONFIG_ACCEL_PROFILE_CUSTOM', 'LIBINPUT_CONFIG_DRAG_LOCK_ENABLED_STICKY', 'LIBINPUT_SWITCH_KEYPAD_SLIDE']
+foreach sym : ['LIBINPUT_CONFIG_ACCEL_PROFILE_CUSTOM', 'LIBINPUT_CONFIG_DRAG_LOCK_ENABLED_STICKY', 'LIBINPUT_SWITCH_KEYPAD_SLIDE', 'LIBINPUT_CONFIG_SCROLL_CIRCULAR']
 	conf_data.set10('HAVE_' + sym, cc.has_header_symbol('libinput.h', sym, dependencies: libinput))
 endforeach
 
