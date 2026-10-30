@@ -662,10 +662,11 @@ void render_text(cairo_t *cairo, const struct sway_font *font,
 				continue;
 			}
 			double dst_x = pen_x + g->x;
-			double dst_y = base_y + g->y - gh;
-			// glyph->y is bearing from baseline? fcft y is top offset
-			// relative to baseline origin; empirical: dst = baseline + y - h.
-			// Clamp obviously broken values from missing glyphs.
+			// fcft's glyph->y is the distance from the baseline up to the
+			// top of the bitmap (positive above the baseline, negative
+			// below it). Cairo draws surfaces downwards from dst_y, so
+			// the top of the bitmap is at baseline - y.
+			double dst_y = base_y - g->y;
 			if (g->is_color_glyph) {
 				cairo_surface_t *surf = cairo_image_surface_create_for_data(
 					data, CAIRO_FORMAT_ARGB32, gw, gh, stride);
