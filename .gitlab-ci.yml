@@ -1,8 +1,8 @@
 # GitLab CI for the swayfs fork.
 #
 # Builds sway(fx) in an Arch container against pinned wlroots/scenefx, then
-# runs the ASan/UBSan headless smoke test. The dev branch is what we develop
-# on; main mirrors upstream; stable holds validated releases.
+# runs the ASan/UBSan headless smoke test. `main` is the only branch: all
+# development and releases land there.
 
 stages:
   - check

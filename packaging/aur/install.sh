@@ -14,14 +14,14 @@
 # tag/branch tarball.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/stable/packaging/aur/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/main/packaging/aur/install.sh | sh
 #
 # Environment:
-#   SWAYFS_BRANCH   branch to install from (default: stable)
+#   SWAYFS_BRANCH   branch to install from (default: main)
 #   MAKEPKG         makepkg command to run on Arch (default: makepkg)
 set -eu
 
-BRANCH="${SWAYFS_BRANCH:-stable}"
+BRANCH="${SWAYFS_BRANCH:-main}"
 REPO="noobmaisfier/swayfs"
 RAW="https://raw.githubusercontent.com/$REPO/refs/heads/$BRANCH"
 MAKEPKG="${MAKEPKG:-makepkg}"

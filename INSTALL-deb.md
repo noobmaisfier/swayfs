@@ -2,7 +2,7 @@
 
 > **swayfs note:** the automated installer does all of this for you on
 > Debian/Ubuntu (and Arch):
-> `curl -fsSL https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/stable/packaging/aur/install.sh | sh`
+> `curl -fsSL https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/main/packaging/aur/install.sh | sh`
 > The manual steps below remain the reference. They apply to swayfs as well —
 > just clone `https://github.com/noobmaisfier/swayfs` instead of upstream
 > SwayFX.

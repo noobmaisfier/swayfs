@@ -21,7 +21,7 @@ fi
 
 # shellcheck disable=SC2086
 docker run --rm -v "$ROOT:/test/repo:ro" $DRI \
-	-e SWAYFS_BRANCH=stable -e SWAYFS_SRC_DIR=/test/repo \
+	-e SWAYFS_BRANCH=main -e SWAYFS_SRC_DIR=/test/repo \
 	debian:stable-slim bash -c '
 set -e
 bash /test/repo/packaging/aur/install.sh

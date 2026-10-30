@@ -9,7 +9,7 @@
 # first (or point SWAYFS_BRANCH at a branch containing it).
 set -eu
 ROOT="${1:-$(cd "$(dirname "$0")/.." && pwd)}"
-BRANCH="${SWAYFS_BRANCH:-stable}"
+BRANCH="${SWAYFS_BRANCH:-main}"
 
 docker run --rm -v "$ROOT:/test/repo:ro" \
 	-e SWAYFS_BRANCH="$BRANCH" \

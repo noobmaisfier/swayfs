@@ -10,15 +10,15 @@ The source repository is public. The fastest way is the convenience installer
 (it auto-detects Arch vs Debian/Ubuntu):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/stable/packaging/aur/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/main/packaging/aur/install.sh | sh
 ```
 
 Or fetch the packaging files yourself and build:
 
 ```sh
 mkdir -p ~/build/swayfs && cd ~/build/swayfs
-curl -fsSLO https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/stable/packaging/aur/swayfs/PKGBUILD
-curl -fsSLO https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/stable/packaging/aur/swayfs/.SRCINFO
+curl -fsSLO https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/main/packaging/aur/swayfs/PKGBUILD
+curl -fsSLO https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/main/packaging/aur/swayfs/.SRCINFO
 makepkg -si
 ```
 
@@ -48,7 +48,7 @@ makepkg -si          # full build + install
 
 ## Release checklist
 
-1. Tag the validated `stable` commit, e.g. `v0.6.swayfs.2`, and push the tag.
+1. Tag the validated `main` commit, e.g. `v0.6.swayfs.2`, and push the tag.
 2. Refresh the checksum (replace the `sha256sums=('SKIP')` line):
    ```sh
    cd packaging/aur/swayfs

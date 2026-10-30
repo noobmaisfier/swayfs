@@ -33,9 +33,7 @@ focused on low RAM and CPU usage:
 
 | branch | purpose |
 |--------|---------|
-| `main` | primary branch (default); day-to-day work lands here, CI builds it |
-| `dev` | staging area for larger changes; promoted to `main` when ready |
-| `stable` | validated, production-ready releases |
+| `main` | primary branch (default); all development and releases land here, CI builds it |
 
 Keeping in sync with upstream:
 
@@ -151,7 +149,7 @@ One installer covers both distributions (it auto-detects Arch vs
 Debian/Ubuntu) — the repository is public, so no account is needed:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/stable/packaging/aur/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/main/packaging/aur/install.sh | sh
 ```
 
 - **Arch:** fetches the PKGBUILD, then `makepkg` downloads the release
@@ -165,15 +163,15 @@ curl -fsSL https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/stab
 You can inspect the script first:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/stable/packaging/aur/install.sh | less
+curl -fsSL https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/main/packaging/aur/install.sh | less
 ```
 
 Or do it by hand on Arch:
 
 ```sh
 mkdir -p ~/build/swayfs && cd ~/build/swayfs
-curl -fsSLO https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/stable/packaging/aur/swayfs/PKGBUILD
-curl -fsSLO https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/stable/packaging/aur/swayfs/.SRCINFO
+curl -fsSLO https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/main/packaging/aur/swayfs/PKGBUILD
+curl -fsSLO https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/main/packaging/aur/swayfs/.SRCINFO
 makepkg -si
 ```
 

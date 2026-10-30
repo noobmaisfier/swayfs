@@ -1,8 +1,7 @@
 name: build
 
-# Validation builds for the supported distros. Runs on `main` only:
-# `dev` is validated by promotion to `main`, `stable` only takes what
-# `main` already built green.
+# Validation builds for the supported distros. Runs on `main`, which is the
+# only branch: all development and releases land there.
 on:
   push:
     branches: [main]
