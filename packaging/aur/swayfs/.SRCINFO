@@ -1,7 +1,7 @@
 pkgbase = swayfs
 	pkgdesc = SwayFX fork focused on low RAM/CPU usage (no swaybar/swaybg, fcft instead of pango)
-	pkgver = 0.6.swayfs.3
-	pkgrel = 3
+	pkgver = 0.6.swayfs.4
+	pkgrel = 1
 	url = https://github.com/noobmaisfier/swayfs
 	arch = x86_64
 	license = MIT
@@ -42,7 +42,7 @@ pkgbase = swayfs
 	conflicts = swayfx-git
 	conflicts = swayfs-git
 	backup = etc/sway/config
-	source = swayfs-0.6.swayfs.3.tar.gz::https://github.com/noobmaisfier/swayfs/archive/refs/tags/v0.6.swayfs.3.tar.gz
-	sha256sums = 4815353bb4425bc6503ff831e2b32bf80413eac89b74ab6f0acc390361f9ebbb
+	source = swayfs-0.6.swayfs.4.tar.gz::https://github.com/noobmaisfier/swayfs/archive/refs/tags/v0.6.swayfs.4.tar.gz
+	sha256sums = f7e42738071194dd92b747514146d4a71b992c114299162b4546ddc9cd409e06
 
 pkgname = swayfs

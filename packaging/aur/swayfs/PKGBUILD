@@ -12,8 +12,8 @@
 # with `makepkg -g` after (re)tagging.
 
 pkgname=swayfs
-pkgver=0.6.swayfs.3
-pkgrel=3
+pkgver=0.6.swayfs.4
+pkgrel=1
 pkgdesc="SwayFX fork focused on low RAM/CPU usage (no swaybar/swaybg, fcft instead of pango)"
 arch=('x86_64')
 url="https://github.com/noobmaisfier/swayfs"
@@ -61,7 +61,7 @@ conflicts=('sway' 'swayfx' 'swayfx-git' 'swayfs-git')
 backup=('etc/sway/config')
 
 source=("$pkgname-$pkgver.tar.gz::https://github.com/noobmaisfier/swayfs/archive/refs/tags/$_tag.tar.gz")
-sha256sums=('4815353bb4425bc6503ff831e2b32bf80413eac89b74ab6f0acc390361f9ebbb')
+sha256sums=('f7e42738071194dd92b747514146d4a71b992c114299162b4546ddc9cd409e06')
 
 # NOTE: GitHub tag archives extract to $pkgname-$pkgver (no 'v' prefix),
 # unlike the previous GitLab archives ($pkgname-$_tag).
