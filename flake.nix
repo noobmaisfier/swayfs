@@ -1,5 +1,5 @@
 {
-  description = "Swayfx development environment";
+  description = "swayfs development environment";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
@@ -26,7 +26,8 @@
 
       in {
         packages = rec {
-          swayfx-unwrapped-git = pkgs.swayfx-unwrapped.overrideAttrs(old: {
+          swayfs-unwrapped-git = pkgs.swayfx-unwrapped.overrideAttrs(old: {
+            pname = "swayfs";
             version = "git";
             src = pkgs.lib.cleanSource ./.;
             nativeBuildInputs = with pkgs; [
@@ -43,7 +44,6 @@
               pcre2
               json_c
               libevdev
-              pango
               cairo
               libinput
               gdk-pixbuf
@@ -55,13 +55,13 @@
             ] ++ [ scenefx-git ];
           });
 
-          default = swayfx-unwrapped-git;
+          default = swayfs-unwrapped-git;
         };
 
         devShells.default = pkgs.mkShell {
-          name = "swayfx-shell";
+          name = "swayfs-shell";
           inputsFrom = [
-            self.packages.${system}.swayfx-unwrapped-git
+            self.packages.${system}.swayfs-unwrapped-git
             scenefx-git
           ];
           packages = [ pkgs.gdb ]; # add debugging packages

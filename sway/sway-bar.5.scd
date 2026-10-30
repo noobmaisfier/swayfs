@@ -38,9 +38,10 @@ runtime.
 	Enable or disable binding mode indicator. Default is _yes_.
 
 *font* <font>
-	Specifies the font to be used in the bar. _font_ should be specified as a
-	pango font description. For more information on pango font descriptions,
-	see https://docs.gtk.org/Pango/type_func.FontDescription.from_string.html#description
+	Specifies the font to be used in the bar. Fonts are specified as a
+	fontconfig family name followed by a point size, for example
+	_monospace 10_. The _pango:_ prefix is accepted for compatibility, but
+	markup styling is not applied (fcft backend, no Pango).
 
 *gaps* <all> | <horizontal> <vertical> | <top> <right> <bottom> <left>
 	Sets the gaps from the edge of the screen for the bar. Gaps can either be

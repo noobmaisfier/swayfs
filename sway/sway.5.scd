@@ -401,7 +401,8 @@ set|plus|minus|toggle <amount>
 
 		for_window [title="."] title_format "<b>%title</b> (%app_id)"
 
-	Note that markup requires pango to be enabled via the *font* command.
+	Note that markup is not rendered with styling: swayfs strips markup tags
+	before drawing title text (fcft backend, no Pango). See *font* below.
 
 	The default format is "%title".
 
@@ -821,13 +822,11 @@ The default colors are:
 	Default is _yes_.
 
 *font* [pango:]<font>
-	Sets font to use for the title bars. To enable support for pango markup,
-	preface the font name with _pango:_. For example, _monospace 10_ is the
-	default font. To enable support for pango markup, _pango:monospace 10_
-	should be used instead. Regardless of whether pango markup is enabled,
-	_font_ should be specified as a pango font description. For more
-	information on pango font descriptions, see
-	https://docs.gtk.org/Pango/type_func.FontDescription.from_string.html#description
+	Sets the font used for title bars. Fonts are specified as a fontconfig
+	family name followed by a point size, for example _monospace 10_ or
+	_Noto Sans Bold 11_. The _pango:_ prefix is accepted for compatibility
+	and enables markup tag stripping, but markup styling is not applied:
+	use the font name to select bold or italic. The default is _monospace 10_.
 
 *force_display_urgency_hint* <timeout> [ms]
 	If an application on another workspace sets an urgency hint, switching to this

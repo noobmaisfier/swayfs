@@ -11,7 +11,7 @@ cd "$(dirname "$0")/.."
 : "${WAYLAND_PROTOCOLS_TAG:=1.47}"
 : "${LIBDRM_TAG:=libdrm-2.4.134}"
 : "${LIBXKBCOMMON_TAG:=xkbcommon-1.9.2}"
-: "${WLR_TAG:=0.20.0}"
+: "${WLR_TAG:=0.20.2}"
 : "${SCENEFX_TAG:=0.5}"
 
 if [ -z "${SKIP_WAYLAND:-}" ] && [ ! -d subprojects/wayland ]; then

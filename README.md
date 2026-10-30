@@ -1,172 +1,111 @@
 <p align="center">
-    <img src="assets/swayfx_logo.svg" width="256" alt="swayfx logo">
+    <img src="assets/swayfx_logo.svg" width="256" alt="swayfs logo">
 </p>
 
+# swayfs
 
-Sway is an incredible window manager, and certainly one of the most well established wayland window managers. However, it is restricted to only include the functionality that existed in i3. This fork ditches the simple wlr_renderer, and replaces it with our fx_renderer, capable of rendering with fancy GLES2 effects. This, along with a couple of minor changes, expands sway's featureset to include the following:
+**swayfs** is a personal fork of [SwayFX](https://github.com/wlrfx/swayfx),
+itself a fork of [Sway](https://github.com/swaywm/sway). It keeps the SwayFX
+visual effects while targeting lower RAM and CPU usage: the bundled bar and
+wallpaper daemon are removed, Pango is replaced by fcft, and several hot paths
+are optimised.
 
-+ **Blur**
-+ **Anti-aliased rounded corners, borders, and titlebars**
-+ **Shadows**
-+ **Dim unfocused windows**
-+ **Scratchpad treated as minimize**: Allows docks, or panels with a taskbar, to correctly interpret minimize / unminimize requests ([thanks to LCBCrion](https://github.com/swaywm/sway/issues/6457))
-+ **nixify the repo**: Allows nixos users to easily contribute to and test this project
+[![build](https://github.com/noobmaisfier/swayfs/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/noobmaisfier/swayfs/actions/workflows/build.yml)
+[![release](https://img.shields.io/github/v/release/noobmaisfier/swayfs)](https://github.com/noobmaisfier/swayfs/releases/latest)
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-<p align="center">
-    <a href="https://repology.org/project/swayfx/versions"><img src="https://repology.org/badge/vertical-allrepos/swayfx.svg" height="282"/></a>
-    <img src="assets/swayfx_screenshot.jpg" width="500"/>
-</p>
+- Source: <https://github.com/noobmaisfier/swayfs>
+- Releases: <https://github.com/noobmaisfier/swayfs/releases>
+- Issues: <https://github.com/noobmaisfier/swayfs/issues>
 
-For Fedora users, SwayFX is also available in [copr](https://copr.fedorainfracloud.org/coprs/swayfx/swayfx/) or in the [Terra repository](https://terra.fyralabs.com).
+> **Status:** personal fork, provided as-is. The Arch package is not published
+> on the AUR yet; use the installer, a release package, or build from source.
+> Only `x86_64` is packaged for Arch.
 
-[Join our Discord](https://discord.gg/qsSx397rkh)
+## Contents
 
-## swayfs fork
+- [Why this fork](#why-this-fork)
+- [Installation](#installation)
+  - [Arch Linux](#arch-linux)
+  - [Debian / Ubuntu](#debian--ubuntu)
+  - [Nix](#nix)
+  - [First start](#first-start)
+- [Differences vs SwayFX](#differences-vs-swayfx)
+- [Migrating from Sway or SwayFX](#migrating-from-sway-or-swayfx)
+- [Configuration](#configuration)
+- [Building from source](#building-from-source)
+- [Keeping in sync with upstream](#keeping-in-sync-with-upstream)
+- [Uninstall](#uninstall)
+- [Contributing](#contributing)
+- [Acknowledgements](#acknowledgements)
+- [License](#license)
 
-This is a personal fork (`swayfs`) of [wlrfx/swayfx](https://github.com/wlrfx/swayfx)
-focused on low RAM and CPU usage:
+## Why this fork
 
-- `swaybar` and the built-in `swaybg` integration are removed — use an external
-  bar (e.g. waybar) and a standalone wallpaper daemon (swaybg, swww, hyprpaper);
-- `pango` is replaced by `fcft`;
-- hot paths (transactions, IPC, text rendering, seat operations) are optimized.
+- No bundled `swaybar` and no built-in `swaybg` integration; use an external
+  bar (waybar, ironbar, …) and a standalone wallpaper daemon (swaybg, swww,
+  hyprpaper, mpvpaper, …).
+- Pango replaced by [fcft](https://codeberg.org/dnkl/fcft) for title text.
+- Hot paths optimised: transactions, IPC, text rendering, seat operations.
 
-| branch | purpose |
-|--------|---------|
-| `main` | primary branch (default); all development and releases land here, CI builds it |
+Visual features inherited from SwayFX:
 
-Keeping in sync with upstream:
+- blur, including xray and per-layer effects;
+- anti-aliased rounded corners, borders and titlebars;
+- shadows;
+- dimming of unfocused windows;
+- scratchpad treated as minimised (opt-in, see
+  `scratchpad_minimize`);
+- Nix flake for development.
 
-```sh
-git fetch upstream
-git checkout main && git merge upstream/master
+## Installation
+
+swayfs installs the `sway` binary and therefore **replaces** the `sway`
+package. The Arch package declares:
+
+```text
+provides  = sway, wayland-compositor
+conflicts = sway, swayfx, swayfx-git, swayfs-git
 ```
 
-CI (`.github/workflows/build.yml`, runs on `main` only) builds in Arch and
-Debian containers against pinned `scenefx` / `wlroots` and runs an
-ASan/UBSan headless smoke test (`ci/asan-smoke.sh`) plus a framebuffer
-rendering regression test (`ci/render-smoke.sh`).
+Your configuration files are not modified: `~/.config/sway/config` is left
+alone, and `/etc/sway/config` is registered as a pacman backup file.
 
-### Memory footprint
+### Arch Linux
 
-`swayfs` is measurably lighter than upstream SwayFX in a controlled headless
-A/B (same `scenefx`/`wlroots0.20`, same config, 6 clients). The saving is a
-fixed startup allocation dominated by replacing `pango` with `fcft`: pango
-eagerly builds the whole fontconfig font set when measuring a font, whereas
-fcft loads only the requested font. Its size therefore scales with the number
-of installed fonts:
+The official packages `scenefx` and `wlroots0.20` (both in `[extra]`) are used;
+no AUR dependency is required.
 
-| installed fonts | PSS vs upstream |
-|---|---|
-| ~12 000 | ~11 MB lower (~20 %) |
-| ~1 000  | ~1.5 MB lower (~3 %) |
+#### A. Installer
 
-Because the same font-set cost is paid by every pango process, a large font
-collection also inflates unrelated GTK applications; pruning unneeded fonts
-benefits the whole machine.
-
-Reproduce with:
-
-```sh
-ci/measure-ram.sh <sway-binary> <label> <n-clients> [off|on]
-```
-
-## New Configuration Options
-
-+ Animations: `animation_duration_ms <integer value 0-5000>`
-+ Window blur:
-    - `blur enable|disable`
-    - `blur_xray enable|disable`: this will set floating windows to blur based on the background, not the windows below. You probably want to set this to `disable` :)
-    - `blur_passes <integer value 0 - 10>`
-    - `blur_radius <integer value 0 - 10>`
-    - `blur_noise <float value 0 - 1>`
-    - `blur_brightness <float value 0 - 2>`
-    - `blur_contrast <float value 0 - 2>`
-    - `blur_saturation <float value 0 - 2>`
-+ Corner radius: `corner_radius <val>`
-+ Window shadows:
-    - `shadows enable|disable`
-    - `shadows_on_csd enable|disable` (**Note**: The shadow might not fit some windows)
-    - `shadow_blur_radius <integer value 0 - 99>`
-    - `shadow_color <hex color with alpha> ex, #0000007F`
-    - `shadow_offset <x offset> <y offset>`
-    - `shadow_inactive_color <hex color with alpha> ex, #0000007F`
-+ LayerShell effects (to blur panels / notifications etc):
-    - `layer_effects <layer namespace> <effects>`
-    - The current layer namespaces can be shown with `swaymsg -r -t get_outputs | jq '.[0].layer_shell_surfaces | .[] | .namespace'`
-    - Example: `layer_effects "waybar" blur enable; shadows enable; corner_radius 6`
-      - Note: If an application uses gtk, its namespace is likely to be "gtk-layer-shell"
-    - SwayIPC Example: `swaymsg layer_effects "waybar" "blur enable"` (you can only set one effect at a time through `swaymsg`)
-    - Config Example:
-        ```
-        layer_effects "waybar" {
-            blur enable;
-            blur_xray enable;
-            blur_ignore_transparent enable;
-            shadows enable;
-            corner_radius 20;
-        }
-        ```
-    - Available Effects:
-        - `blur <enable|disable>`
-        - `blur_xray <enable|disable>`
-        - `blur_ignore_transparent <enable|disable>`
-        - `shadows <enable|disable>`
-        - `corner_radius <int>`
-        - `reset`: To reset/disable all previously applied effects to the layer application
-+ Dim unfocused windows:
-    - `default_dim_inactive <float value 0.0 - 1.0>`
-    - `for_window [CRITERIA_HERE] dim_inactive <float value 0.0 - 1.0>`
-    - `dim_inactive_colors.unfocused <hex color> ex, #000000FF`
-    - `dim_inactive_colors.urgent <hex color> ex, #900000FF`
-+ Keep/remove separator border between titlebar and content: `titlebar_separator enable|disable`
-+ Treat Scratchpad as minimized: `scratchpad_minimize enable|disable`: **we recommend keeping this setting off, as there are many kinks to iron out here**
-
-
-## Compiling From Source
-
-### Nix
-
-If you have Nix installed, you can build and run SwayFX easily:
-
-```
-nix build
-./result/bin/sway
-```
-
-You can also bring up a development shell and follow the build instructions below, without installing all of the dependencies manually:
-
-```
-nix develop
-```
-### Debian
-
-Check [INSTALL-deb.md](/INSTALL-deb.md)
-
-### Arch Linux & Debian
-
-One installer covers both distributions (it auto-detects Arch vs
-Debian/Ubuntu) — the repository is public, so no account is needed:
+The installer fetches the `PKGBUILD` for the current release, then `makepkg`
+downloads the tagged source archive, verifies its checksum, builds and installs
+the package. `base-devel` is installed automatically if missing.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/main/packaging/aur/install.sh | sh
 ```
 
-- **Arch:** fetches the PKGBUILD, then `makepkg` downloads the release
-  archive from the tag, verifies its checksum, builds and installs the
-  package (which replaces `sway`). Make sure `base-devel` is installed.
-- **Debian/Ubuntu:** installs build dependencies with `apt`, builds the
-  pinned `wlroots`/`scenefx` as meson subprojects (Debian doesn't ship
-  them), then builds and installs swayfs to `/usr/local`. See
-  [INSTALL-deb.md](/INSTALL-deb.md) for the manual steps.
-
-You can inspect the script first:
+Inspect it first if you prefer:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/main/packaging/aur/install.sh | less
 ```
 
-Or do it by hand on Arch:
+#### B. Prebuilt package from a release
+
+Release pages may include a prebuilt package
+(`swayfs-<version>-<pkgrel>-x86_64.pkg.tar.zst`). Download it from
+<https://github.com/noobmaisfier/swayfs/releases/latest>, then:
+
+```sh
+sudo pacman -U swayfs-<version>-<pkgrel>-x86_64.pkg.tar.zst
+```
+
+The package is built by the maintainer for the current Arch `x86_64` repos; if
+your system is older than the build environment, prefer option A.
+
+#### C. Manual build with makepkg
 
 ```sh
 mkdir -p ~/build/swayfs && cd ~/build/swayfs
@@ -175,12 +114,274 @@ curl -fsSLO https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/mai
 makepkg -si
 ```
 
+See [`packaging/aur/README.md`](packaging/aur/README.md) for the release
+checklist and local packaging instructions.
+
+### Debian / Ubuntu
+
+The same installer detects Debian/Ubuntu, installs the build dependencies with
+`apt`, builds pinned `wlroots` and `scenefx` as Meson subprojects (Debian does
+not ship them), and installs swayfs under `/usr/local`:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/main/packaging/aur/install.sh | sh
+```
+
+`sudo` (or running as root) is required. See
+[`INSTALL-deb.md`](INSTALL-deb.md) for the manual steps and an explanation of
+the pinned dependencies.
+
+### Nix
+
+If you have Nix with flakes enabled:
+
+```sh
+nix build
+./result/bin/sway
+```
+
+Or enter a development shell with all dependencies:
+
+```sh
+nix develop
+```
+
+> The flake is inherited from SwayFX and may lag behind swayfs-specific
+> changes. It is convenient for development, but the Arch and Debian paths
+> above are the supported installation methods.
+
+### First start
+
+Log out and pick **Sway** at your display manager (the session file is still
+`sway.desktop`), or run `sway` from a TTY.
+
+Verify the installation:
+
+```sh
+sway --version
+# swayfs version 0.6 (based on sway 1.12.0)
+
+pacman -Q swayfs      # Arch: check the package version
+```
+
+The package version is `0.6.swayfs.N`, while `sway --version` reports the base
+fork version (`0.6`). Builds made from a git checkout may append the commit,
+for example `0.6-d72c0fe7`. Note that `/usr/local/bin` must be in `PATH` on
+Debian if you installed there manually.
+
+## Differences vs SwayFX
+
+| | SwayFX | swayfs |
+|---|---|---|
+| Bar | bundled `swaybar` | removed; use an external bar |
+| Wallpaper | built-in `swaybg` integration | removed; use a standalone daemon |
+| Text rendering | Pango | fcft |
+| Renderer | scenefx `fx_renderer` | unchanged |
+| Pango markup | styled | stripped, styling not applied |
+| Branches | `dev` and `stable` | `main` only |
+| Arch package | `swayfx` | `swayfs`, provides/conflicts `sway` |
+
+The fork does **not** remove the SwayFX effects: blur, shadows, rounded
+corners, dim-inactive and layer effects are still available.
+
+## Migrating from Sway or SwayFX
+
+### Packages
+
+On Arch, installing `swayfs` removes `sway`, `swayfx`, `swayfx-git` or
+`swayfs-git` because of the declared conflicts. Keep a copy of your config
+before switching, and reinstall your previous compositor if you want to roll
+back.
+
+### Bar
+
+The `swaybar` binary is no longer built. Remove `bar { … }` blocks from your
+config and start an external bar instead:
+
+```text
+exec waybar
+```
+
+`bar { swaybar_command … }` only makes sense for clients that implement the
+swaybar protocol; layer-shell bars such as waybar should be started with
+`exec`.
+
+### Wallpaper
+
+The built-in `swaybg` integration was removed. Lines such as:
+
+```text
+output * bg ~/wallpaper.png fill
+```
+
+are no longer valid and will be reported as unknown commands. Remove them and
+start a wallpaper daemon instead, for example:
+
+```text
+exec swaybg -i ~/wallpaper.png -m fill
+# or: exec swww-daemon, exec hyprpaper, exec mpvpaper, ...
+```
+
+### Fonts and Pango markup
+
+`font` still uses a family name followed by a point size:
+
+```text
+font monospace 10
+font Noto Sans 11
+```
+
+Bold and italic are detected from the font string (`font Noto Sans Bold 11`).
+
+The `pango:` prefix is accepted for compatibility and still enables markup
+handling, but **markup styling is ignored**: tags are stripped before
+rendering, so `<b>`, `<i>` and `<span>` do not produce bold, italic or colours.
+Pick the style through the font name instead. Markup in `title_format` is
+subject to the same limitation.
+
+### Scratchpad
+
+`scratchpad_minimize` still defaults to off. The upstream warning remains:
+keep it off unless you accept the known rough edges.
+
+## Configuration
+
+The configuration file is unchanged: `~/.config/sway/config`, or
+`/etc/sway/config` by default. The options below are inherited from SwayFX and
+keep working, except where noted in
+[Migrating from Sway or SwayFX](#migrating-from-sway-or-swayfx).
+
+### SwayFX effects
+
+- Animations: `animation_duration_ms <integer value 0-5000>`
+
+- Blur:
+  - `blur enable|disable`
+  - `blur_xray enable|disable`: blur based on the background rather than the
+    windows below; usually you want this `disable`.
+  - `blur_passes <integer value 0-10>`
+  - `blur_radius <integer value 0-10>`
+  - `blur_noise <float value 0-1>`
+  - `blur_brightness <float value 0-2>`
+  - `blur_contrast <float value 0-2>`
+  - `blur_saturation <float value 0-2>`
+
+- Corner radius: `corner_radius <val>`
+
+- Shadows:
+  - `shadows enable|disable`
+  - `shadows_on_csd enable|disable` (**note:** the shadow may not fit every
+    window)
+  - `shadow_blur_radius <integer value 0-99>`
+  - `shadow_color <hex color with alpha>`, e.g. `#0000007F`
+  - `shadow_offset <x offset> <y offset>`
+  - `shadow_inactive_color <hex color with alpha>`, e.g. `#0000007F`
+
+- Layer-shell effects (panels, notifications, …):
+  - `layer_effects <layer namespace> <effects>`
+  - List namespaces with:
+    `swaymsg -r -t get_outputs | jq '.[0].layer_shell_surfaces | .[] | .namespace'`
+  - Example:
+    `layer_effects "waybar" blur enable; shadows enable; corner_radius 6`
+    (GTK applications usually use the `gtk-layer-shell` namespace.)
+  - Via Sway IPC, one effect at a time:
+    `swaymsg layer_effects "waybar" "blur enable"`
+  - Config example:
+
+    ```text
+    layer_effects "waybar" {
+        blur enable;
+        blur_xray enable;
+        blur_ignore_transparent enable;
+        shadows enable;
+        corner_radius 20;
+    }
+    ```
+
+  - Available effects:
+    - `blur <enable|disable>`
+    - `blur_xray <enable|disable>`
+    - `blur_ignore_transparent <enable|disable>`
+    - `shadows <enable|disable>`
+    - `corner_radius <int>`
+    - `reset`: reset all effects previously applied to that layer namespace
+
+- Dim unfocused windows:
+  - `default_dim_inactive <float value 0.0-1.0>`
+  - `for_window [CRITERIA] dim_inactive <float value 0.0-1.0>`
+  - `dim_inactive_colors.unfocused <hex color>`, e.g. `#000000FF`
+  - `dim_inactive_colors.urgent <hex color>`, e.g. `#900000FF`
+
+- Titlebar separator: `titlebar_separator enable|disable`
+
+- Scratchpad as minimised: `scratchpad_minimize enable|disable` (**keep it
+  off unless you accept the upstream rough edges**)
+
+### Text rendering
+
+- `font [pango:]<family> [style] <size>` — see
+  [Fonts and Pango markup](#fonts-and-pango-markup).
+- `pango:` only enables tag stripping; it does not restore Pango styling.
+
+## Building from source
+
+### Dependencies
+
+Compile-time requirements:
+
+- meson >= 1.3, ninja, pkg-config, a C compiler
+- wayland-server >= 1.21, wayland-protocols >= 1.41
+- wlroots 0.20.x and scenefx 0.5
+- pixman, libdrm, libinput >= 1.26, libevdev, libxkbcommon >= 1.5
+- json-c >= 0.13, pcre2, cairo, fcft, fontconfig, freetype
+- libxcb and xcb-util-wm for XWayland
+- optional: scdoc >= 1.9.2 (man pages), git (version info),
+  gdk-pixbuf2 (extra tray image formats)
+
+On Arch, the dependency set used by CI is:
+
+```sh
+sudo pacman -S --needed base-devel meson ninja pkgconf git \
+  wayland wayland-protocols libxkbcommon libinput libdrm libxcb \
+  xcb-util-wm json-c pcre2 cairo fcft fontconfig libevdev pixman \
+  scenefx wlroots0.20 scdoc
+```
+
+If `scenefx` or `wlroots 0.20` is not available on your distribution, place
+them in `subprojects/`; Meson builds them automatically. On Debian/Ubuntu,
+follow [INSTALL-deb.md](INSTALL-deb.md), which pins the required versions.
+
+### Manual steps
+
+```sh
+git clone https://github.com/noobmaisfier/swayfs.git
+cd swayfs
+
+meson setup build --prefix=/usr/local -Dwerror=false -Dman-pages=enabled
+meson compile -C build
+sudo meson install -C build
+```
+
+On Debian, add `--libdir=lib` so the subproject libraries land where
+`ldconfig` and `pkg-config` look by default, and pass
+`-Dwlroots:werror=false -Dscenefx:werror=false` (see `INSTALL-deb.md`).
+
+On systems without logind or seatd, the compositor needs the setuid bit:
+
+```sh
+sudo chmod u+s /usr/local/bin/sway
+```
+
+Prefer logind or seatd; setuid is a fallback. swayfs drops root privileges
+shortly after startup.
+
 ### Container (Docker)
 
-To build SwayFX inside a container, install Docker and run the following commands from inside this repository:
+The container is a development aid, not an installation method. From the
+repository root:
 
-```bash
-# build the container and run it (which builds SwayFX)
+```sh
+# build the container and run it (which builds swayfs)
 docker compose up --build
 
 # become root to install the previously built files
@@ -197,49 +398,85 @@ while read -r FILE; do
 done < <(command find opt/ -type f)
 ```
 
-### Manual Steps
+## Keeping in sync with upstream
 
-Install dependencies:
+`main` is the only branch. Releases are tagged `v0.6.swayfs.N`: `0.6` follows
+the SwayFX release line and `N` is the fork revision (the Arch `pkgrel` is
+independent).
 
-* meson \*
-* wlroots
-* wayland
-* wayland-protocols \*
-* pcre2
-* json-c
-* pango
-* cairo
-* [scenefx](https://github.com/wlrfx/scenefx)
-* gdk-pixbuf2 (optional: additional image formats for system tray)
-* [swaybg] (optional: wallpaper)
-* [scdoc] (optional: man pages) \*
-* git (optional: version info) \*
+To merge upstream changes, work on a dedicated branch rather than merging
+directly into `main`:
 
-_\* Compile-time dep_
+```sh
+git remote add upstream https://github.com/wlrfx/swayfx.git
+git fetch upstream
 
-Run these commands:
+git switch -c sync/upstream-$(date +%Y%m%d) main
+git merge upstream/master
+```
 
-    meson build/
-    ninja -C build/
-    sudo ninja -C build/ install
+The merge is expected to conflict with the fork's removals and rewrites,
+especially in `swaybar/`, `swaybg/`, `common/font.c`, `common/pango.c` and
+`meson.build`. Do **not** resolve conflicts by taking upstream blindly: that
+reintroduces `swaybar`, `swaybg` and Pango. Build, run the sanitizer and render
+smoke tests, and only then fast-forward `main`.
 
-On systems without logind nor seatd, you need to suid the sway binary:
+## Uninstall
 
-    sudo chmod a+s /usr/local/bin/sway
+### Arch Linux
 
-SwayFX will drop root permissions shortly after startup.
+```sh
+sudo pacman -Rns swayfs
+```
+
+This leaves your configuration in place. Reinstall `sway` or `swayfx`
+afterwards if you still need a compositor.
+
+### Debian / Ubuntu
+
+The automated installer builds in a temporary directory and does not keep an
+uninstall manifest, so it cannot uninstall for you. If you still have the
+build directory, run:
+
+```sh
+sudo ninja -C build uninstall
+```
+
+Otherwise remove the files installed under `/usr/local` (`bin/sway`,
+`bin/swaymsg`, `bin/swaynag`, man pages, `lib/sway`, subproject libraries) and
+`/etc/ld.so.conf.d/swayfs-local.conf`, then run `sudo ldconfig`.
 
 ## Contributing
 
-SwayFX would love to receive any new features that you're willing to build! Generally, we'd like to focus on eye-candy type improvements to keep our scope appropriate. If you'd like to build something that you think may be out of that focus, please raise an issue and we can discuss whether or not it will fit within this project.
+swayfs is a personal fork with a deliberately narrow scope: low memory/CPU
+usage, bug fixes, and keeping up with upstream. New eye-candy features belong
+upstream in [SwayFX](https://github.com/wlrfx/swayfx). Issues and pull
+requests are welcome; see [`CONTRIBUTING.md`](CONTRIBUTING.md) for code style
+and commit conventions.
+
+GitHub Actions (`.github/workflows/build.yml`) builds on pushes to `main` and
+on pull requests targeting `main`, in Arch and Debian containers. The
+repository also ships a GitLab CI pipeline (`.gitlab-ci.yml`) that runs the
+ASan/UBSan headless smoke test (`ci/asan-smoke.sh`) and the framebuffer
+rendering regression test (`ci/render-smoke.sh`). `ci/measure-ram.sh` is a
+developer tool for comparing memory use between builds.
 
 ## Acknowledgements
 
-The SwayFX team would like to first and foremost thank the maintainers and contributors of the Sway window manager. We are but a humble group of Sway enthusiasts who wanted to expand upon your creation.
+swayfs would not exist without the Sway maintainers and contributors, and
+without the SwayFX team, who built the effects and the renderer this fork is
+based on.
 
-We would also like to thank the talented artists in our community for contibuting the visual assets that give this project charm:
-+ pkdesuwu and honchokomodo for creating the swayfx mascot: https://twitter.com/pkdesuwu/status/1664517033017368576
-+ spooky_skeleton for the swayfx logo, and [Basil](https://basil.cafe) for making some fine adjustments to it
+The visual assets come from the SwayFX community:
 
-Lastly, we would like to thank you, the community, for enjoying and using window manager that we have spent so much time maintaining.
+- [@pkdesuwu](https://twitter.com/pkdesuwu) and honchokomodo for the mascot;
+- spooky_skeleton for the logo, with adjustments by
+  [Basil](https://basil.cafe).
 
+The upstream SwayFX Discord is a good place for general SwayFX questions:
+<https://discord.gg/qsSx397rkh>. Please report swayfs-specific bugs on this
+repository instead.
+
+## License
+
+MIT, inherited from Sway and SwayFX. See [`LICENSE`](LICENSE).
