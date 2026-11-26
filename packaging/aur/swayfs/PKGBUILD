@@ -61,7 +61,7 @@ conflicts=('sway' 'swayfx' 'swayfx-git' 'swayfs-git')
 backup=('etc/sway/config')
 
 source=("$pkgname-$pkgver.tar.gz::https://github.com/noobmaisfier/swayfs/archive/refs/tags/$_tag.tar.gz")
-sha256sums=('f7e42738071194dd92b747514146d4a71b992c114299162b4546ddc9cd409e06')
+sha256sums=('8dc1261c5ad3a641cf689943ab71d976ac313a34da1aa541caec2fd816d893ed')
 
 # NOTE: GitHub tag archives extract to $pkgname-$pkgver (no 'v' prefix),
 # unlike the previous GitLab archives ($pkgname-$_tag).
