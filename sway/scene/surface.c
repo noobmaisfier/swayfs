@@ -55,8 +55,8 @@ static bool scene_surface_point_accepts_input(struct wlr_scene_buffer *scene_buf
 	if (!scene_surface || !scene_surface->surface) {
 		return false;
 	}
-	*sx += scene_surface->WLR_PRIVATE.clip.x;
-	*sy += scene_surface->WLR_PRIVATE.clip.y;
+	*sx += scene_buffer->node.x;
+	*sy += scene_buffer->node.y;
 	return pixman_region32_contains_point(
 		&scene_surface->surface->input_region, (int)*sx, (int)*sy, NULL);
 }
@@ -65,8 +65,6 @@ static void scene_surface_update_state(struct wlr_scene_surface *scene_surface) 
 	struct wlr_surface *surface = scene_surface->surface;
 	struct wlr_scene_buffer *scene_buffer = scene_surface->buffer;
 	struct wlr_box clip = scene_surface->WLR_PRIVATE.clip;
-
-	wlr_scene_node_set_enabled(&scene_buffer->node, surface->mapped);
 
 	struct wlr_buffer *wlr_buf = surface->buffer ? &surface->buffer->base : NULL;
 	struct wlr_scene_buffer_set_buffer_options opts = {
@@ -79,54 +77,63 @@ static void scene_surface_update_state(struct wlr_scene_surface *scene_surface) 
 		opts.wait_point = syncobj->acquire_point;
 	}
 
+	bool enabled = surface->mapped;
+	int pos_x = 0;
+	int pos_y = 0;
 	int dst_w = surface->current.width;
 	int dst_h = surface->current.height;
 	struct wlr_fbox src_box = surface->current.viewport.has_src
 		? surface->current.viewport.src
 		: (struct wlr_fbox){0};
 
+	pixman_region32_t opaque;
+	pixman_region32_init(&opaque);
+	pixman_region32_copy(&opaque, &surface->opaque_region);
+
 	if (!wlr_box_empty(&clip)) {
-		if (wlr_fbox_empty(&src_box) && wlr_buf) {
-			int bw = surface->current.buffer_width;
-			int bh = surface->current.buffer_height;
-			if (surface->current.transform & WL_OUTPUT_TRANSFORM_90) {
-				int tmp = bw;
-				bw = bh;
-				bh = tmp;
+		struct wlr_box surface_box = { 0, 0, dst_w, dst_h };
+		struct wlr_box clipped = {0};
+		if (!wlr_box_intersection(&clipped, &surface_box, &clip)) {
+			enabled = false;
+			dst_w = 0;
+			dst_h = 0;
+			pixman_region32_clear(&opaque);
+		} else {
+			pos_x = clipped.x;
+			pos_y = clipped.y;
+
+			if (wlr_fbox_empty(&src_box) && wlr_buf) {
+				int bw = surface->current.buffer_width;
+				int bh = surface->current.buffer_height;
+				if (surface->current.transform & WL_OUTPUT_TRANSFORM_90) {
+					int tmp = bw;
+					bw = bh;
+					bh = tmp;
+				}
+				src_box = (struct wlr_fbox){ 0, 0, bw, bh };
 			}
-			src_box = (struct wlr_fbox){ 0, 0, bw, bh };
-		}
-		if (dst_w > 0 && dst_h > 0 && !wlr_fbox_empty(&src_box)) {
-			double sx_scale = src_box.width / dst_w;
-			double sy_scale = src_box.height / dst_h;
-			int cx = clip.x < 0 ? 0 : clip.x;
-			int cy = clip.y < 0 ? 0 : clip.y;
-			int cw = clip.width;
-			int ch = clip.height;
-			if (cx + cw > dst_w) cw = dst_w - cx;
-			if (cy + ch > dst_h) ch = dst_h - cy;
-			if (cw < 0) cw = 0;
-			if (ch < 0) ch = 0;
-			src_box.x += cx * sx_scale;
-			src_box.y += cy * sy_scale;
-			src_box.width = cw * sx_scale;
-			src_box.height = ch * sy_scale;
-			dst_w = cw;
-			dst_h = ch;
+			if (dst_w > 0 && dst_h > 0 && !wlr_fbox_empty(&src_box)) {
+				double sx_scale = src_box.width / dst_w;
+				double sy_scale = src_box.height / dst_h;
+				src_box.x += clipped.x * sx_scale;
+				src_box.y += clipped.y * sy_scale;
+				src_box.width = clipped.width * sx_scale;
+				src_box.height = clipped.height * sy_scale;
+			}
+			dst_w = clipped.width;
+			dst_h = clipped.height;
+
+			pixman_region32_translate(&opaque, -clipped.x, -clipped.y);
+			pixman_region32_intersect_rect(&opaque, &opaque, 0, 0, dst_w, dst_h);
 		}
 	}
 
+	wlr_scene_node_set_enabled(&scene_buffer->node, enabled);
+	wlr_scene_node_set_position(&scene_buffer->node, pos_x, pos_y);
 	wlr_scene_buffer_set_source_box(scene_buffer, &src_box);
 	wlr_scene_buffer_set_dest_size(scene_buffer, dst_w, dst_h);
 	wlr_scene_buffer_set_transform(scene_buffer, surface->current.transform);
 
-	pixman_region32_t opaque;
-	pixman_region32_init(&opaque);
-	pixman_region32_copy(&opaque, &surface->opaque_region);
-	if (!wlr_box_empty(&clip)) {
-		pixman_region32_translate(&opaque, -clip.x, -clip.y);
-		pixman_region32_intersect_rect(&opaque, &opaque, 0, 0, dst_w, dst_h);
-	}
 	wlr_scene_buffer_set_opaque_region(scene_buffer, &opaque);
 	pixman_region32_fini(&opaque);
 
@@ -300,8 +307,51 @@ static void handle_subsurface_child_tree_destroy(struct wl_listener *listener, v
 	scene_subsurface_child_free(child);
 }
 
-static void sync_subsurface_list(struct wl_list *subsurfaces,
-		struct wlr_scene_tree *target_tree) {
+static const struct wlr_addon_interface subsurface_tree_addon_impl;
+
+static struct scene_subsurface_tree *scene_subsurface_tree_from_node(
+		struct wlr_scene_node *node) {
+	if (!node || node->type != WLR_SCENE_NODE_TREE) {
+		return NULL;
+	}
+	struct wlr_addon *addon = wlr_addon_find(&node->addons,
+		wlr_scene_tree_from_node(node), &subsurface_tree_addon_impl);
+	if (!addon) {
+		return NULL;
+	}
+	struct scene_subsurface_tree *st = wl_container_of(addon, st, addon);
+	return st;
+}
+
+static void scene_subsurface_tree_apply_clip(struct scene_subsurface_tree *st,
+		const struct wlr_box *clip) {
+	struct wlr_box new_clip = clip ? *clip : (struct wlr_box){0};
+	if (memcmp(&st->scene_surface->WLR_PRIVATE.clip, &new_clip, sizeof(new_clip)) != 0) {
+		st->scene_surface->WLR_PRIVATE.clip = new_clip;
+		scene_surface_update_state(st->scene_surface);
+	}
+
+	struct wlr_scene_tree *lists[2] = { st->subsurfaces_below, st->subsurfaces_above };
+	for (int i = 0; i < 2; i++) {
+		struct wlr_scene_node *child;
+		wl_list_for_each(child, &lists[i]->children, link) {
+			struct scene_subsurface_tree *child_st = scene_subsurface_tree_from_node(child);
+			if (!child_st) {
+				continue;
+			}
+			struct wlr_box child_clip = {0};
+			if (!wlr_box_empty(&new_clip)) {
+				child_clip = new_clip;
+				child_clip.x -= child->x;
+				child_clip.y -= child->y;
+			}
+			scene_subsurface_tree_apply_clip(child_st, &child_clip);
+		}
+	}
+}
+
+static void sync_subsurface_list(struct scene_subsurface_tree *parent_st,
+		struct wl_list *subsurfaces, struct wlr_scene_tree *target_tree) {
 	struct wlr_subsurface *sub;
 	struct wlr_scene_node *prev_node = NULL;
 	wl_list_for_each(sub, subsurfaces, current.link) {
@@ -338,19 +388,31 @@ static void sync_subsurface_list(struct wl_list *subsurfaces,
 			wlr_scene_node_lower_to_bottom(found);
 		}
 		prev_node = found;
+
+		struct scene_subsurface_tree *child_st = scene_subsurface_tree_from_node(found);
+		if (child_st) {
+			struct wlr_box parent_clip = parent_st->scene_surface->WLR_PRIVATE.clip;
+			struct wlr_box child_clip = {0};
+			if (!wlr_box_empty(&parent_clip)) {
+				child_clip = parent_clip;
+				child_clip.x -= sub->current.x;
+				child_clip.y -= sub->current.y;
+			}
+			scene_subsurface_tree_apply_clip(child_st, &child_clip);
+		}
 	}
 }
 
 static void handle_subsurface_tree_commit(struct wl_listener *listener, void *data) {
 	struct scene_subsurface_tree *st = wl_container_of(listener, st, surface_commit);
-	sync_subsurface_list(&st->surface->current.subsurfaces_below, st->subsurfaces_below);
-	sync_subsurface_list(&st->surface->current.subsurfaces_above, st->subsurfaces_above);
+	sync_subsurface_list(st, &st->surface->current.subsurfaces_below, st->subsurfaces_below);
+	sync_subsurface_list(st, &st->surface->current.subsurfaces_above, st->subsurfaces_above);
 }
 
 static void handle_subsurface_tree_new_sub(struct wl_listener *listener, void *data) {
 	struct scene_subsurface_tree *st = wl_container_of(listener, st, new_subsurface);
-	sync_subsurface_list(&st->surface->current.subsurfaces_below, st->subsurfaces_below);
-	sync_subsurface_list(&st->surface->current.subsurfaces_above, st->subsurfaces_above);
+	sync_subsurface_list(st, &st->surface->current.subsurfaces_below, st->subsurfaces_below);
+	sync_subsurface_list(st, &st->surface->current.subsurfaces_above, st->subsurfaces_above);
 }
 
 static void scene_subsurface_tree_cleanup(struct scene_subsurface_tree *st) {
@@ -418,8 +480,8 @@ struct wlr_scene_tree *wlr_scene_subsurface_tree_create(
 	st->new_subsurface.notify = handle_subsurface_tree_new_sub;
 	wl_signal_add(&surface->events.new_subsurface, &st->new_subsurface);
 
-	sync_subsurface_list(&surface->current.subsurfaces_below, st->subsurfaces_below);
-	sync_subsurface_list(&surface->current.subsurfaces_above, st->subsurfaces_above);
+	sync_subsurface_list(st, &surface->current.subsurfaces_below, st->subsurfaces_below);
+	sync_subsurface_list(st, &surface->current.subsurfaces_above, st->subsurfaces_above);
 	return tree;
 }
 
@@ -428,16 +490,15 @@ void wlr_scene_subsurface_tree_set_clip(struct wlr_scene_node *node,
 	if (!node || node->type != WLR_SCENE_NODE_TREE) {
 		return;
 	}
-	struct wlr_addon *addon = wlr_addon_find(&node->addons,
-		wlr_scene_tree_from_node(node), &subsurface_tree_addon_impl);
-	if (!addon) {
+	struct scene_subsurface_tree *st = scene_subsurface_tree_from_node(node);
+	if (st) {
+		scene_subsurface_tree_apply_clip(st, clip);
 		return;
 	}
-	struct scene_subsurface_tree *st = wl_container_of(addon, st, addon);
-	struct wlr_box new_clip = clip ? *clip : (struct wlr_box){0};
-	if (memcmp(&st->scene_surface->WLR_PRIVATE.clip, &new_clip, sizeof(new_clip)) != 0) {
-		st->scene_surface->WLR_PRIVATE.clip = new_clip;
-		scene_surface_update_state(st->scene_surface);
+	struct wlr_scene_tree *tree = wlr_scene_tree_from_node(node);
+	struct wlr_scene_node *child;
+	wl_list_for_each(child, &tree->children, link) {
+		wlr_scene_subsurface_tree_set_clip(child, clip);
 	}
 }
 
