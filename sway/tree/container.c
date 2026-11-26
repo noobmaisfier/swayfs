@@ -55,8 +55,6 @@ struct sway_container *container_create(struct sway_view *view) {
 
 	// Container tree structure
 	// - scene tree
-	//   - blur source
-	//   - shadow
 	//   - title bar
 	//     - border
 	//     - background
@@ -70,19 +68,6 @@ struct sway_container *container_create(struct sway_view *view) {
 	//     - buffer used for output enter/leave events for foreign_toplevel
 	bool failed = false;
 	c->scene_tree = alloc_scene_tree(root->staging, &failed);
-
-	// Lazy FX nodes: blur/shadow each hold a scenefx FBO + shader state.
-	// Allocating them for every container (including scratchpad/hidden ones)
-	// pins megabytes when effects are globally disabled (the default).
-	c->blur = NULL;
-	c->shadow = NULL;
-	if (config->blur_enabled) {
-		c->blur = alloc_scene_blur(c->scene_tree, 0, 0, &failed);
-	}
-	if (config->shadow_enabled) {
-		c->shadow = alloc_scene_shadow(c->scene_tree, 0, 0,
-				0, config->shadow_blur_sigma, config->shadow_color, &failed);
-	}
 
 	c->title_bar.tree = alloc_scene_tree(c->scene_tree, &failed);
 
@@ -127,8 +112,6 @@ struct sway_container *container_create(struct sway_view *view) {
 	c->marks = create_list();
 
 	c->corner_radius = config->corner_radius;
-	c->blur_enabled = config->blur_enabled;
-	c->shadow_enabled = config->shadow_enabled;
 	c->dim = config->default_dim_inactive;
 
 	c->animation_state.animation = init_animation(c);
@@ -157,49 +140,6 @@ struct sway_container *container_create(struct sway_view *view) {
 	container_update(c);
 
 	return c;
-}
-
-void container_ensure_blur(struct sway_container *con) {
-	if (con->blur || !con->scene_tree) {
-		return;
-	}
-	bool failed = false;
-	con->blur = alloc_scene_blur(con->scene_tree, 0, 0, &failed);
-	if (failed || !con->blur) {
-		sway_log(SWAY_ERROR, "Failed to allocate lazy blur node");
-		con->blur = NULL;
-		return;
-	}
-	wlr_scene_node_set_enabled(&con->blur->node, con->blur_enabled);
-
-	// alloc_scene_blur() appends the node, i.e. it lands on *top* of the
-	// title bar and content (render order == list order, first child at the
-	// bottom). The eager path in container_create() instead builds
-	// blur, shadow, title bar, border from bottom to top. Re-place the node
-	// to keep blur under the shadow (if any) and under the title bar.
-	if (con->shadow) {
-		wlr_scene_node_place_below(&con->blur->node, &con->shadow->node);
-	} else {
-		wlr_scene_node_place_below(&con->blur->node, &con->title_bar.tree->node);
-	}
-}
-
-void container_ensure_shadow(struct sway_container *con) {
-	if (con->shadow || !con->scene_tree) {
-		return;
-	}
-	bool failed = false;
-	con->shadow = alloc_scene_shadow(con->scene_tree, 0, 0,
-			0, config->shadow_blur_sigma, config->shadow_color, &failed);
-	if (failed || !con->shadow) {
-		sway_log(SWAY_ERROR, "Failed to allocate lazy shadow node");
-		con->shadow = NULL;
-		return;
-	}
-
-	// See container_ensure_blur(): put the shadow under the title bar (and
-	// thus under the content) instead of on top of everything.
-	wlr_scene_node_place_below(&con->shadow->node, &con->title_bar.tree->node);
 }
 
 static bool container_is_focused(struct sway_container *con, void *data) {
@@ -277,20 +217,6 @@ static void scene_rect_set_color(struct wlr_scene_rect *rect,
 	wlr_scene_rect_set_color(rect, premultiplied);
 }
 
-// scene shadow wants premultiplied colors
-// TODO: make common get_premultiplied_color function
-static void scene_shadow_set_color(struct wlr_scene_shadow *shadow,
-		const float color[4], float opacity) {
-	const float premultiplied[] = {
-		color[0] * color[3] * opacity,
-		color[1] * color[3] * opacity,
-		color[2] * color[3] * opacity,
-		color[3] * opacity,
-	};
-
-	wlr_scene_shadow_set_color(shadow, premultiplied);
-}
-
 void container_update(struct sway_container *con) {
 	struct border_colors *colors = container_get_current_colors(con);
 	list_t *siblings = NULL;
@@ -334,15 +260,6 @@ void container_update(struct sway_container *con) {
 		scene_rect_set_color(con->border.bottom, bottom, alpha);
 		scene_rect_set_color(con->border.left, colors->child_border, alpha);
 		scene_rect_set_color(con->border.right, right, alpha);
-
-		if (con->shadow_enabled) {
-			container_ensure_shadow(con);
-		}
-		if (con->shadow) {
-			float *shadow_color = view_is_urgent(con->view) || con->current.focused ?
-					config->shadow_color : config->shadow_inactive_color;
-			scene_shadow_set_color(con->shadow, shadow_color, alpha);
-		}
 	}
 
 	if (con->title_bar.title_text) {
@@ -2252,20 +2169,6 @@ void container_swap(struct sway_container *con1, struct sway_container *con2) {
 	if (fs2) {
 		container_set_fullscreen(con1, fs2);
 	}
-}
-
-bool container_has_shadow(struct sway_container *con) {
-	bool shadow_enabled = con->shadow_enabled
-		&& (con->current.border != B_CSD || config->shadows_on_csd_enabled);
-
-	if (!con->current.workspace) {
-		return shadow_enabled;
-	}
-
-	struct side_gaps gaps = con->current.workspace->current_gaps;
-	bool has_gaps = gaps.top > 0 || gaps.right > 0 || gaps.bottom > 0 || gaps.left > 0;
-
-	return (container_is_floating_or_child(con) || has_gaps) && shadow_enabled;
 }
 
 bool container_has_corner_radius(struct sway_container *con) {

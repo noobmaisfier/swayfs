@@ -5,8 +5,8 @@
 #   - Arch:   fetches the PKGBUILD (release tag archive + checksum) and runs
 #             `makepkg -si` (needs base-devel + an AUR-style toolchain).
 #   - Debian: installs build dependencies with apt, fetches the release
-#             branch tarball, builds pinned wlroots/scenefx as meson
-#             subprojects, then builds and installs swayfs to /usr/local.
+#             branch tarball, builds pinned wlroots as a meson
+#             subproject, then builds and installs swayfs to /usr/local.
 #
 # The repository is public, so no account is needed. Nothing is executed
 # from an untrusted source beyond this script itself: the PKGBUILD and its
@@ -110,8 +110,8 @@ install_debian() {
 	for c in curl git; do require_cmd "$c"; done
 	echo "swayfs: installing build dependencies with apt..."
 	# apt dependency list mirrors INSTALL-deb.md and .github/workflows/build.yml.
-	# Debian ships neither wlroots-0.20 nor scenefx, so both are built as
-	# pinned meson subprojects (ci/fetch-subprojects.sh).
+	# Debian ships no wlroots-0.20, so it is built as a pinned meson subproject
+	# (ci/fetch-subprojects.sh).
 	$SUDO apt-get update
 	# shellcheck disable=SC2086
 	$SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -144,7 +144,7 @@ install_debian() {
 	fi
 	cd "swayfs-$BRANCH"
 
-	echo "swayfs: fetching pinned wlroots/scenefx subprojects..."
+	echo "swayfs: fetching pinned wlroots subprojects..."
 	bash ci/fetch-subprojects.sh
 
 	echo "swayfs: installing pixman 0.46 to /usr/local (wlroots needs >= 0.46)..."
@@ -156,7 +156,7 @@ install_debian() {
 	# neither ldconfig's nor pkg-config's default search path; /usr/local/lib
 	# is in both, so the subproject libraries are found at runtime.
 	meson setup build --prefix=/usr/local --libdir=lib -Dwerror=false -Dman-pages=enabled \
-		-Dwlroots:werror=false -Dscenefx:werror=false -Dwayland:werror=false \
+		-Dwlroots:werror=false -Dwayland:werror=false \
 		-Dwayland-protocols:werror=false -Dlibdrm:werror=false \
 		-Dlibxkbcommon:werror=false
 	meson compile -C build

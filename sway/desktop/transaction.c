@@ -4,7 +4,7 @@
 #include <string.h>
 #include <time.h>
 #include <wlr/types/wlr_buffer.h>
-#include "scenefx/types/fx/clipped_region.h"
+#include "sway/scene/corner_radii.h"
 #include "sway/animation_manager.h"
 #include "sway/config.h"
 #include "sway/scene_descriptor.h"
@@ -474,12 +474,6 @@ static void arrange_children(enum sway_container_layout layout, list_t *children
 			arrange_title_bar(child, title_offset, -title_bar_height,
 				next_title_offset - title_offset, title_bar_height);
 			wlr_scene_node_set_enabled(&child->border.tree->node, activated);
-			if (child->blur) {
-				wlr_scene_node_set_enabled(&child->blur->node, activated);
-			}
-			if (child->shadow) {
-				wlr_scene_node_set_enabled(&child->shadow->node, false);
-			}
 			wlr_scene_node_set_enabled(&child->scene_tree->node, true);
 			wlr_scene_node_reparent(&child->scene_tree->node, content);
 
@@ -509,12 +503,6 @@ static void arrange_children(enum sway_container_layout layout, list_t *children
 
 			arrange_title_bar(child, 0, y - title_height, width, title_bar_height);
 			wlr_scene_node_set_enabled(&child->border.tree->node, activated);
-			if (child->blur) {
-				wlr_scene_node_set_enabled(&child->blur->node, activated);
-			}
-			if (child->shadow) {
-				wlr_scene_node_set_enabled(&child->shadow->node, false);
-			}
 			wlr_scene_node_set_enabled(&child->scene_tree->node, true);
 			wlr_scene_node_reparent(&child->scene_tree->node, content);
 
@@ -534,13 +522,6 @@ static void arrange_children(enum sway_container_layout layout, list_t *children
 			int cheight = child->current.height;
 
 			wlr_scene_node_set_enabled(&child->border.tree->node, true);
-			if (child->blur) {
-				wlr_scene_node_set_enabled(&child->blur->node, true);
-			}
-			if (child->shadow) {
-				wlr_scene_node_set_enabled(&child->shadow->node,
-						container_has_shadow(child) && child->view);
-			}
 			wlr_scene_node_reparent(&child->scene_tree->node, content);
 			if (width > 0 && cheight > 0) {
 				arrange_container(child, width, cheight, 0, off, true, gaps);
@@ -556,13 +537,6 @@ static void arrange_children(enum sway_container_layout layout, list_t *children
 			int cwidth = child->current.width;
 
 			wlr_scene_node_set_enabled(&child->border.tree->node, true);
-			if (child->blur) {
-				wlr_scene_node_set_enabled(&child->blur->node, true);
-			}
-			if (child->shadow) {
-				wlr_scene_node_set_enabled(&child->shadow->node,
-						container_has_shadow(child) && child->view);
-			}
 			wlr_scene_node_reparent(&child->scene_tree->node, content);
 			if (cwidth > 0 && height > 0) {
 				arrange_container(child, cwidth, height, off, 0, true, gaps);
@@ -585,40 +559,6 @@ static void _arrange_container(struct sway_container *con,
 	wlr_scene_node_set_enabled(&con->scene_tree->node, true);
 
 	bool has_corner_radius = container_has_corner_radius(con);
-
-	if (container_has_shadow(con)) {
-		container_ensure_shadow(con);
-	}
-	if (con->shadow && container_has_shadow(con)) {
-		int corner_radius = has_corner_radius ? con->corner_radius + con->current.border_thickness : 0;
-		if (!con->view && title_bar) {
-			// Stacking/Tabbed containers don't have a border_thickness, so we
-			// use the config default
-			corner_radius = con->corner_radius + config->border_thickness;
-		}
-
-		wlr_scene_shadow_set_size(con->shadow,
-				width + config->shadow_blur_sigma * 2,
-				height + config->shadow_blur_sigma * 2);
-
-		int shadow_x = config->shadow_offset_x - config->shadow_blur_sigma;
-		int shadow_y = config->shadow_offset_y - config->shadow_blur_sigma;
-		wlr_scene_node_set_position(&con->shadow->node, shadow_x, shadow_y);
-
-		wlr_scene_shadow_set_clipped_region(con->shadow, (struct clipped_region) {
-			.corners = corner_radii_all(corner_radius),
-			.area = {
-				.x = config->shadow_blur_sigma - config->shadow_offset_x,
-				.y = config->shadow_blur_sigma - config->shadow_offset_y,
-				.width = width,
-				.height = height,
-			}
-		});
-
-		wlr_scene_shadow_set_blur_sigma(con->shadow, config->shadow_blur_sigma);
-		wlr_scene_shadow_set_corner_radius(con->shadow,
-				!has_corner_radius ? 0 : corner_radius);
-	}
 
 	if (con->view) {
 		wlr_scene_node_coords(&con->scene_tree->node,
@@ -758,17 +698,6 @@ static void _arrange_container(struct sway_container *con,
 		wlr_scene_node_set_position(&con->view->scene_tree->node,
 			border_left, border_top);
 
-		if (con->blur_enabled) {
-			container_ensure_blur(con);
-		}
-		if (con->blur) {
-			wlr_scene_node_set_enabled(&con->blur->node, con->blur_enabled);
-			if (con->blur_enabled) {
-				wlr_scene_node_set_position(&con->blur->node, border_left, border_top);
-				wlr_scene_blur_set_size(con->blur, content_width, content_height);
-			}
-		}
-
 		// the output handler for the view wants to detect events for the entire
 		// container so give it negative coordinates to move it back over the
 		// decorations
@@ -779,12 +708,6 @@ static void _arrange_container(struct sway_container *con,
 		// make sure to disable the title bar if the parent is not managing it
 		if (title_bar) {
 			wlr_scene_node_set_enabled(&con->title_bar.tree->node, false);
-		}
-
-		if (con->shadow) {
-			wlr_scene_node_set_enabled(&con->shadow->node,
-					container_has_shadow(con) &&
-					(con->current.layout == L_TABBED || con->current.layout == L_STACKED));
 		}
 
 		arrange_children(con->current.layout, con->current.children,
@@ -931,10 +854,6 @@ static void arrange_workspace_floating(struct sway_workspace *ws) {
 
 		wlr_scene_node_reparent(&floater->scene_tree->node, layer);
 		wlr_scene_node_set_enabled(&floater->scene_tree->node, true);
-		if (floater->shadow) {
-			wlr_scene_node_set_enabled(&floater->shadow->node,
-					container_has_shadow(floater) && floater->view);
-		}
 		wlr_scene_node_set_enabled(&floater->border.tree->node, true);
 
 		arrange_container(floater, floater->current.width, floater->current.height,
@@ -1080,7 +999,6 @@ static void arrange_output(struct sway_output *output, int width, int height) {
 
 			wlr_scene_node_set_enabled(&output->layers.shell_background->node, !fs);
 			wlr_scene_node_set_enabled(&output->layers.shell_bottom->node, !fs);
-			wlr_scene_node_set_enabled(&output->layers.blur_layer->node, !fs);
 			wlr_scene_node_set_enabled(&output->layers.fullscreen->node, fs);
 
 			if (fs) {
@@ -1149,7 +1067,6 @@ static void arrange_root(struct sway_root *root) {
 
 	wlr_scene_node_set_enabled(&root->layers.shell_background->node, !fs);
 	wlr_scene_node_set_enabled(&root->layers.shell_bottom->node, !fs);
-	wlr_scene_node_set_enabled(&root->layers.blur_tree->node, !fs);
 	wlr_scene_node_set_enabled(&root->layers.tiling->node, !fs);
 	wlr_scene_node_set_enabled(&root->layers.floating->node, !fs);
 	wlr_scene_node_set_enabled(&root->layers.shell_top->node, !fs);
@@ -1192,7 +1109,6 @@ static void arrange_root(struct sway_root *root) {
 
 			wlr_scene_node_reparent(&output->layers.shell_background->node, root->layers.shell_background);
 			wlr_scene_node_reparent(&output->layers.shell_bottom->node, root->layers.shell_bottom);
-			wlr_scene_node_reparent(&output->layers.blur_layer->node, root->layers.blur_tree);
 			wlr_scene_node_reparent(&output->layers.tiling->node, root->layers.tiling);
 			wlr_scene_node_reparent(&output->layers.shell_top->node, root->layers.shell_top);
 			wlr_scene_node_reparent(&output->layers.shell_overlay->node, root->layers.shell_overlay);
@@ -1201,7 +1117,6 @@ static void arrange_root(struct sway_root *root) {
 
 			wlr_scene_node_set_position(&output->layers.shell_background->node, output->lx, output->ly);
 			wlr_scene_node_set_position(&output->layers.shell_bottom->node, output->lx, output->ly);
-			wlr_scene_node_set_position(&output->layers.blur_layer->node, output->lx, output->ly);
 			wlr_scene_node_set_position(&output->layers.tiling->node, output->lx, output->ly);
 			wlr_scene_node_set_position(&output->layers.fullscreen->node, output->lx, output->ly);
 			wlr_scene_node_set_position(&output->layers.shell_top->node, output->lx, output->ly);

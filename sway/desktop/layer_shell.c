@@ -1,4 +1,4 @@
-#include <scenefx/types/wlr_scene.h>
+#include "sway/scene/wlr_scene.h"
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -56,17 +56,9 @@ struct wlr_layer_surface_v1 *toplevel_layer_surface_from_surface(
 void layer_apply_criteria(struct sway_layer_surface *surface, struct layer_criteria *criteria) {
 	if (criteria) {
 		surface->corner_radius = criteria->corner_radius;
-		surface->blur_enabled = criteria->blur_enabled;
-		surface->blur_xray = criteria->blur_xray;
-		surface->blur_ignore_transparent = criteria->blur_ignore_transparent;
-		surface->shadow_enabled = criteria->shadow_enabled;
 	} else {
 		// Reset
 		surface->corner_radius = 0;
-		surface->blur_enabled = false;
-		surface->blur_xray = false;
-		surface->blur_ignore_transparent = false;
-		surface->shadow_enabled = false;
 	}
 }
 
@@ -96,32 +88,6 @@ static void arrange_surface(struct sway_output *output, const struct wlr_box *fu
 
 		if ((surface->scene->layer_surface->current.exclusive_zone > 0) != exclusive) {
 			continue;
-		}
-
-		wlr_scene_node_set_enabled(&surface->blur_node->node, surface->blur_enabled);
-		wlr_scene_blur_set_size(surface->blur_node, surface->layer_surface->surface->current.width,
-			surface->layer_surface->surface->current.height);
-
-		wlr_scene_node_set_enabled(&surface->shadow_node->node, surface->shadow_enabled);
-
-		if (surface->shadow_enabled) {
-			// Adjust the size and position of the shadow node
-			wlr_scene_shadow_set_size(surface->shadow_node,
-					surface->layer_surface->surface->current.width + config->shadow_blur_sigma * 2,
-					surface->layer_surface->surface->current.height + config->shadow_blur_sigma * 2);
-			int x = config->shadow_offset_x - config->shadow_blur_sigma;
-			int y = config->shadow_offset_y - config->shadow_blur_sigma;
-			wlr_scene_node_set_position(&surface->shadow_node->node, x, y);
-
-			wlr_scene_shadow_set_clipped_region(surface->shadow_node, (struct clipped_region) {
-					.corners = corner_radii_all(surface->corner_radius),
-					.area = {
-						.x = -x,
-						.y = -y,
-						.width = surface->layer_surface->surface->current.width,
-						.height = surface->layer_surface->surface->current.height,
-					},
-			});
 		}
 
 		wlr_scene_layer_surface_v1_configure(surface->scene, full_area, usable_area);
@@ -240,21 +206,6 @@ static struct sway_layer_surface *sway_layer_surface_create(
 
 	// Effects
 	surface->corner_radius = 0;
-	surface->blur_enabled = false;
-	surface->blur_xray = false;
-	surface->blur_ignore_transparent = false;
-	surface->shadow_enabled = false;
-
-	bool failed = false;
-	surface->blur_node = alloc_scene_blur(surface->tree, 0, 0, &failed);
-	surface->shadow_node = alloc_scene_shadow(surface->tree, 0, 0,
-			0, config->shadow_blur_sigma, config->shadow_color, &failed);
-	if (failed) {
-		sway_log(SWAY_ERROR, "Failed to allocate a shadow node");
-		wlr_scene_node_destroy(&popups->node);
-		free(surface);
-		return NULL;
-	}
 
 	return surface;
 }
@@ -307,14 +258,6 @@ static void handle_node_destroy(struct wl_listener *listener, void *data) {
 		}
 	}
 
-	struct wlr_layer_surface_v1 *wlr_layer_surface = layer->layer_surface;
-	if (wlr_layer_surface->current.layer == ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND ||
-		wlr_layer_surface->current.layer == ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM) {
-		if (layer->output) {
-			wlr_scene_optimized_blur_mark_dirty(layer->output->layers.blur_layer);
-		}
-	}
-
 	if (layer->output) {
 		arrange_layers(layer->output);
 		transaction_commit_dirty();
@@ -340,15 +283,6 @@ static void handle_surface_commit(struct wl_listener *listener, void *data) {
 
 	struct wlr_layer_surface_v1 *layer_surface = surface->layer_surface;
 
-	// Rerender the optimized blur on change
-	if (layer_surface->current.layer ==
-			ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND ||
-		layer_surface->current.layer == ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM) {
-		if (surface->output) {
-			wlr_scene_optimized_blur_mark_dirty(surface->output->layers.blur_layer);
-		}
-	}
-
 	uint32_t committed = layer_surface->current.committed;
 	if (layer_surface->initialized && committed & WLR_LAYER_SURFACE_V1_STATE_LAYER) {
 		enum zwlr_layer_shell_v1_layer layer_type = layer_surface->current.layer;
@@ -372,8 +306,6 @@ static void handle_map(struct wl_listener *listener, void *data) {
 				surface->scene->layer_surface;
 
 	layer_parse_criteria(surface);
-	wlr_scene_node_lower_to_bottom(&surface->shadow_node->node);
-	wlr_scene_node_lower_to_bottom(&surface->blur_node->node);
 
 	// focus on new surface
 	if (layer_surface->current.keyboard_interactive &&

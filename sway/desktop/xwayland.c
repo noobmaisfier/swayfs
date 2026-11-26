@@ -1,5 +1,5 @@
 #include <float.h>
-#include <scenefx/types/wlr_scene.h>
+#include "sway/scene/wlr_scene.h"
 #include <stdbool.h>
 #include <stdlib.h>
 #include <wayland-server-core.h>

@@ -1,10 +1,9 @@
 #ifndef _SWAY_CONTAINER_H
 #define _SWAY_CONTAINER_H
-#include <scenefx/types/wlr_scene.h>
+#include "sway/scene/wlr_scene.h"
 #include <stdint.h>
 #include <sys/types.h>
 #include <wlr/types/wlr_compositor.h>
-#include <wlr/types/wlr_scene.h>
 #include "list.h"
 #include "sway/animation_manager.h"
 #include "sway/tree/node.h"
@@ -93,9 +92,6 @@ struct sway_container {
 		struct wlr_scene_rect *right;
 	} border;
 
-	struct wlr_scene_blur *blur;
-	struct wlr_scene_shadow *shadow;
-
 	struct wlr_scene_rect *dim_rect;
 
 	struct wlr_scene_tree *content_tree;
@@ -148,8 +144,6 @@ struct sway_container {
 	float alpha;
 
 	int corner_radius;
-	bool blur_enabled;
-	bool shadow_enabled;
 	float dim;
 
 	struct {
@@ -401,12 +395,6 @@ void container_arrange_title_bar(struct sway_container *con);
 void container_update(struct sway_container *con);
 
 void container_update_itself_and_parents(struct sway_container *con);
-
-void container_ensure_blur(struct sway_container *con);
-
-void container_ensure_shadow(struct sway_container *con);
-
-bool container_has_shadow(struct sway_container *con);
 
 bool container_has_corner_radius(struct sway_container *con);
 

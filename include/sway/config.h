@@ -491,17 +491,6 @@ struct sway_config {
 		float urgent[4];
 	} dim_inactive_colors;
 
-	bool blur_enabled;
-	bool blur_xray;
-	struct blur_data blur_data;
-
-	bool shadow_enabled;
-	bool shadows_on_csd_enabled;
-	int shadow_blur_sigma;
-	float shadow_color[4];
-	float shadow_inactive_color[4];
-	float shadow_offset_x, shadow_offset_y;
-
 	bool titlebar_separator;
 	bool scratchpad_minimize;
 

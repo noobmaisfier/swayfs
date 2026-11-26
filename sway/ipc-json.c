@@ -431,11 +431,6 @@ static void ipc_json_describe_enabled_output(struct sway_output *output,
 			json_object_object_add(layer, "extent", extent);
 
 			json_object *effects = json_object_new_object();
-			json_object_object_add(effects, "blur", json_object_new_boolean(surface->blur_enabled));
-			json_object_object_add(effects, "blur_xray", json_object_new_boolean(surface->blur_xray));
-			json_object_object_add(effects, "blur_ignore_transparent",
-					json_object_new_boolean(surface->blur_ignore_transparent));
-			json_object_object_add(effects, "shadows", json_object_new_boolean(surface->shadow_enabled));
 			json_object_object_add(effects, "corner_radius", json_object_new_int(surface->corner_radius));
 			json_object_object_add(layer, "effects", effects);
 

@@ -1,6 +1,6 @@
 #ifndef _SWAY_NODE_H
 #define _SWAY_NODE_H
-#include <scenefx/types/wlr_scene.h>
+#include "sway/scene/wlr_scene.h"
 #include <wayland-server-core.h>
 #include <stdbool.h>
 #include "list.h"
@@ -86,12 +86,5 @@ void scene_node_disown_children(struct wlr_scene_tree *tree);
 // of this scene node preventing memory leaks.
 struct wlr_scene_tree *alloc_scene_tree(struct wlr_scene_tree *parent,
 		bool *failed);
-
-struct wlr_scene_shadow *alloc_scene_shadow(struct wlr_scene_tree *parent,
-		int width, int height, int corner_radius, float blur_sigma,
-		const float color [static 4], bool *failed);
-
-struct wlr_scene_blur *alloc_scene_blur(struct wlr_scene_tree *parent,
-		int width, int height, bool *failed);
 
 #endif

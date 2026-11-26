@@ -4,10 +4,6 @@ struct layer_criteria {
 	char *namespace;
 	char *cmdlist;
 
-	bool shadow_enabled;
-	bool blur_enabled;
-	bool blur_xray;
-	bool blur_ignore_transparent;
 	int corner_radius;
 };
 

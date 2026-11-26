@@ -48,11 +48,10 @@ are optimised.
 - Pango replaced by [fcft](https://codeberg.org/dnkl/fcft) for title text.
 - Hot paths optimised: transactions, IPC, text rendering, seat operations.
 
-Visual features inherited from SwayFX:
+Visual features retained from SwayFX:
 
-- blur, including xray and per-layer effects;
 - anti-aliased rounded corners, borders and titlebars;
-- shadows;
+- animations;
 - dimming of unfocused windows;
 - scratchpad treated as minimised (opt-in, see
   `scratchpad_minimize`);
@@ -73,8 +72,8 @@ alone, and `/etc/sway/config` is registered as a pacman backup file.
 
 ### Arch Linux
 
-The official packages `scenefx` and `wlroots0.20` (both in `[extra]`) are used;
-no AUR dependency is required.
+The official package `wlroots0.20` (in `[extra]`) is used; no AUR dependency
+is required.
 
 #### A. Installer
 
@@ -120,8 +119,8 @@ checklist and local packaging instructions.
 ### Debian / Ubuntu
 
 The same installer detects Debian/Ubuntu, installs the build dependencies with
-`apt`, builds pinned `wlroots` and `scenefx` as Meson subprojects (Debian does
-not ship them), and installs swayfs under `/usr/local`:
+`apt`, builds pinned `wlroots` as a Meson subproject (Debian does not ship it),
+and installs swayfs under `/usr/local`:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/main/packaging/aur/install.sh | sh
@@ -176,13 +175,14 @@ Debian if you installed there manually.
 | Bar | bundled `swaybar` | removed; use an external bar |
 | Wallpaper | built-in `swaybg` integration | removed; use a standalone daemon |
 | Text rendering | Pango | fcft |
-| Renderer | scenefx `fx_renderer` | unchanged |
+| Renderer | scenefx `fx_renderer` | internal GLES2 corner renderer + `wlr_scene` |
 | Pango markup | styled | stripped, styling not applied |
 | Branches | `dev` and `stable` | `main` only |
 | Arch package | `swayfx` | `swayfs`, provides/conflicts `sway` |
 
-The fork does **not** remove the SwayFX effects: blur, shadows, rounded
-corners, dim-inactive and layer effects are still available.
+blur and drop shadows are removed to simplify the compositor and reduce CPU/RAM
+usage; animations, rounded corners, borders, gaps, dim-inactive and layer
+`corner_radius` remain available.
 
 ## Migrating from Sway or SwayFX
 
@@ -255,54 +255,26 @@ keep working, except where noted in
 
 - Animations: `animation_duration_ms <integer value 0-5000>`
 
-- Blur:
-  - `blur enable|disable`
-  - `blur_xray enable|disable`: blur based on the background rather than the
-    windows below; usually you want this `disable`.
-  - `blur_passes <integer value 0-10>`
-  - `blur_radius <integer value 0-10>`
-  - `blur_noise <float value 0-1>`
-  - `blur_brightness <float value 0-2>`
-  - `blur_contrast <float value 0-2>`
-  - `blur_saturation <float value 0-2>`
-
 - Corner radius: `corner_radius <val>`
-
-- Shadows:
-  - `shadows enable|disable`
-  - `shadows_on_csd enable|disable` (**note:** the shadow may not fit every
-    window)
-  - `shadow_blur_radius <integer value 0-99>`
-  - `shadow_color <hex color with alpha>`, e.g. `#0000007F`
-  - `shadow_offset <x offset> <y offset>`
-  - `shadow_inactive_color <hex color with alpha>`, e.g. `#0000007F`
 
 - Layer-shell effects (panels, notifications, …):
   - `layer_effects <layer namespace> <effects>`
   - List namespaces with:
     `swaymsg -r -t get_outputs | jq '.[0].layer_shell_surfaces | .[] | .namespace'`
   - Example:
-    `layer_effects "waybar" blur enable; shadows enable; corner_radius 6`
+    `layer_effects "waybar" corner_radius 6`
     (GTK applications usually use the `gtk-layer-shell` namespace.)
-  - Via Sway IPC, one effect at a time:
-    `swaymsg layer_effects "waybar" "blur enable"`
+  - Via Sway IPC:
+    `swaymsg layer_effects "waybar" "corner_radius 6"`
   - Config example:
 
     ```text
     layer_effects "waybar" {
-        blur enable;
-        blur_xray enable;
-        blur_ignore_transparent enable;
-        shadows enable;
         corner_radius 20;
     }
     ```
 
   - Available effects:
-    - `blur <enable|disable>`
-    - `blur_xray <enable|disable>`
-    - `blur_ignore_transparent <enable|disable>`
-    - `shadows <enable|disable>`
     - `corner_radius <int>`
     - `reset`: reset all effects previously applied to that layer namespace
 
@@ -331,8 +303,9 @@ Compile-time requirements:
 
 - meson >= 1.3, ninja, pkg-config, a C compiler
 - wayland-server >= 1.21, wayland-protocols >= 1.41
-- wlroots 0.20.x and scenefx 0.5
+- wlroots 0.20.x
 - pixman, libdrm, libinput >= 1.26, libevdev, libxkbcommon >= 1.5
+- egl, glesv2
 - json-c >= 0.13, pcre2, cairo, fcft, fontconfig, freetype
 - libxcb and xcb-util-wm for XWayland
 - optional: scdoc >= 1.9.2 (man pages), git (version info),
@@ -344,11 +317,11 @@ On Arch, the dependency set used by CI is:
 sudo pacman -S --needed base-devel meson ninja pkgconf git \
   wayland wayland-protocols libxkbcommon libinput libdrm libxcb \
   xcb-util-wm json-c pcre2 cairo fcft fontconfig libevdev pixman \
-  scenefx wlroots0.20 scdoc
+  wlroots0.20 scdoc
 ```
 
-If `scenefx` or `wlroots 0.20` is not available on your distribution, place
-them in `subprojects/`; Meson builds them automatically. On Debian/Ubuntu,
+If `wlroots 0.20` is not available on your distribution, place
+it in `subprojects/`; Meson builds it automatically. On Debian/Ubuntu,
 follow [INSTALL-deb.md](INSTALL-deb.md), which pins the required versions.
 
 ### Manual steps
@@ -364,7 +337,7 @@ sudo meson install -C build
 
 On Debian, add `--libdir=lib` so the subproject libraries land where
 `ldconfig` and `pkg-config` look by default, and pass
-`-Dwlroots:werror=false -Dscenefx:werror=false` (see `INSTALL-deb.md`).
+`-Dwlroots:werror=false` (see `INSTALL-deb.md`).
 
 On systems without logind or seatd, the compositor needs the setuid bit:
 

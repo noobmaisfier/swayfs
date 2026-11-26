@@ -20,13 +20,6 @@ struct sway_layer_surface {
 
 	struct sway_output *output;
 
-	struct wlr_scene_blur *blur_node;
-	struct wlr_scene_shadow *shadow_node;
-
-	bool shadow_enabled;
-	bool blur_enabled;
-	bool blur_xray;
-	bool blur_ignore_transparent;
 	int corner_radius;
 
 	struct wl_list link; // sway_output.layer_surfaces

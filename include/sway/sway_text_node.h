@@ -1,6 +1,6 @@
 #ifndef _SWAY_BUFFER_H
 #define _SWAY_BUFFER_H
-#include <scenefx/types/wlr_scene.h>
+#include "sway/scene/wlr_scene.h"
 
 struct sway_text_node {
 	int width;

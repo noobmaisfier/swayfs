@@ -225,31 +225,6 @@ static void configure_layer_shell_surface(struct wlr_scene_buffer *buffer,
 	int corner_radius = layer_surface->corner_radius;
 
 	wlr_scene_buffer_set_corner_radii(buffer, corner_radii_all(corner_radius));
-	wlr_scene_shadow_set_blur_sigma(layer_surface->shadow_node, config->shadow_blur_sigma);
-	wlr_scene_shadow_set_corner_radius(layer_surface->shadow_node, corner_radius);
-
-	wlr_scene_node_set_enabled(&layer_surface->blur_node->node, layer_surface->blur_enabled);
-	if (layer_surface->blur_ignore_transparent) {
-		wlr_scene_blur_set_transparency_mask_source(layer_surface->blur_node, buffer);
-	} else {
-		wlr_scene_blur_set_transparency_mask_source(layer_surface->blur_node, NULL);
-	}
-	wlr_scene_blur_set_should_only_blur_bottom_layer(layer_surface->blur_node, layer_surface->blur_xray);
-	wlr_scene_blur_set_corner_radii(layer_surface->blur_node, corner_radii_all(corner_radius));
-	wlr_scene_blur_set_size(layer_surface->blur_node,
-		layer_surface->layer_surface->surface->current.width,
-		layer_surface->layer_surface->surface->current.height
-	);
-}
-
-static bool could_container_overlap(struct sway_container *con) {
-	if (container_is_floating_or_child(con)) {
-		return true;
-	}
-
-	// animations can have tiled containers overlap in flight
-	return con->animation_state.animation.initialized ||
-		(con->current.workspace && con->current.workspace->animation_state.animation.initialized);
 }
 
 void output_configure_scene(struct sway_output *output, struct wlr_scene_node *node,
@@ -353,24 +328,6 @@ void output_configure_scene(struct sway_output *output, struct wlr_scene_node *n
 		if (buffer->dst_width != content_width || buffer->dst_height != content_height) {
 			wlr_scene_buffer_set_dest_size(buffer, content_width, content_height);
 		}
-	} else if (node->type == WLR_SCENE_NODE_BLUR && closest_con) {
-		struct wlr_scene_blur *blur = wlr_scene_blur_from_node(node);
-
-		// Fast path: disabled blur costs nothing. Avoid touching
-		// strength/corner uniforms (each setter damages in scenefx).
-		if (!closest_con->blur_enabled) {
-			if (node->enabled) {
-				wlr_scene_node_set_enabled(node, false);
-			}
-			return;
-		}
-
-		bool should_optimize_blur = config->blur_xray || !could_container_overlap(closest_con);
-		wlr_scene_blur_set_should_only_blur_bottom_layer(blur, should_optimize_blur);
-		wlr_scene_blur_set_strength(blur, opacity);
-		wlr_scene_node_set_enabled(node, true);
-		wlr_scene_blur_set_corner_radii(blur, has_titlebar ?
-			corner_radii_bottom(corner_radius) : corner_radii_all(corner_radius));
 	}
 }
 

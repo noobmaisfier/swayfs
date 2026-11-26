@@ -12,8 +12,7 @@
 
 > **Note:** this guide targets **swayfs 0.6** (based on **SwayFX 0.6**, itself
 > based on **Sway 1.12**). Debian does not package the required
-> **wlroots 0.20.2** and **scenefx 0.5**, so they are built as Meson
-> subprojects.
+> **wlroots 0.20.2**, so it is built as a Meson subproject.
 
 ## 1. Install dependencies
 
@@ -48,7 +47,7 @@ git checkout v0.6.swayfs.4   # or: git checkout main
 
 `ci/fetch-subprojects.sh` clones the pinned dependencies into
 `subprojects/` (wayland 1.24.0, wayland-protocols 1.47, libdrm 2.4.134,
-libxkbcommon 1.9.2, wlroots 0.20.2, scenefx 0.5):
+libxkbcommon 1.9.2, wlroots 0.20.2):
 
 ```bash
 WLR_TAG=0.20.2 bash ci/fetch-subprojects.sh
@@ -67,7 +66,6 @@ The resulting tree looks like:
     ├── wayland-protocols (v1.47)
     ├── libxkbcommon (v1.9.2)
     ├── libdrm (v2.4.134)
-    ├── scenefx (v0.5)
     └── wlroots (v0.20.2)
 ```
 
@@ -83,15 +81,15 @@ bash ci/install-pixman-prefix.sh
 ## 4. Compile and install
 
 Meson detects the sources in `subprojects/` and builds them automatically.
-Per-subproject `werror=false` is needed because wlroots/scenefx force
-`werror=true` and GCC 14 trips over some of their warnings. `--libdir=lib`
+Per-subproject `werror=false` is needed because wlroots forces
+`werror=true` and GCC 14 trips over some of its warnings. `--libdir=lib`
 ensures the subproject libraries land where `ldconfig` and `pkg-config` look
 by default.
 
 ```bash
 meson setup build/ --prefix=/usr/local --libdir=lib \
   -Dwerror=false -Dman-pages=enabled \
-  -Dwlroots:werror=false -Dscenefx:werror=false \
+  -Dwlroots:werror=false \
   -Dwayland:werror=false -Dwayland-protocols:werror=false \
   -Dlibdrm:werror=false -Dlibxkbcommon:werror=false
 

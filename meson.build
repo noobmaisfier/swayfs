@@ -43,16 +43,6 @@ if is_freebsd
 	add_project_arguments('-D_C11_SOURCE', language: 'c')
 endif
 
-# Execute the scenefx subproject, if any
-subproject(
-	'scenefx',
-	# Third-party code: do not let its warnings fail our build (GCC 16 is
-	# stricter than what these pinned versions were tested with).
-	default_options: ['werror=false'],
-	required: false,
-)
-scenefx = dependency('scenefx-0.5', fallback: 'scenefx')
-
 # Execute the wlroots subproject, if any
 wlroots_version = ['>=0.20.0', '<0.21.0']
 subproject(
@@ -90,6 +80,8 @@ libevdev = dependency('libevdev')
 libinput = wlroots_features['libinput_backend'] ? dependency('libinput', version: '>=1.26.0') : null_dep
 xcb = wlroots_features['xwayland'] ? dependency('xcb') : null_dep
 drm = dependency('libdrm')
+egl = dependency('egl')
+glesv2 = dependency('glesv2')
 libudev = wlroots_features['libinput_backend'] ? dependency('libudev') : null_dep
 math = cc.find_library('m')
 rt = cc.find_library('rt')
@@ -157,7 +149,6 @@ if git.found()
 endif
 add_project_arguments('-DSWAY_VERSION=@0@'.format(version), language: 'c')
 add_project_arguments('-DSWAY_ORIGINAL_VERSION="@0@"'.format(original_version), language: 'c')
-add_project_arguments('-DSCENEFX_VERSION="@0@"'.format(scenefx.version()), language: 'c')
 
 fs = import('fs')
 

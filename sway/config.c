@@ -359,18 +359,6 @@ static void config_defaults(struct sway_config *config) {
 	color_to_rgba(config->dim_inactive_colors.unfocused, 0x000000FF);
 	color_to_rgba(config->dim_inactive_colors.urgent, 0x900000FF);
 
-	config->blur_enabled = false;
-	config->blur_xray = false;
-	config->blur_data = blur_data_get_default();
-
-	config->shadow_enabled = false;
-	config->shadows_on_csd_enabled = false;
-	config->shadow_blur_sigma = 15.0f;
-	config->shadow_offset_x = 0.0f;
-	config->shadow_offset_y = 0.0f;
-	color_to_rgba(config->shadow_color, 0x0000007F);
-	color_to_rgba(config->shadow_inactive_color, 0x0000007F);
-
 	config->titlebar_separator = true;
 	config->scratchpad_minimize = false;
 

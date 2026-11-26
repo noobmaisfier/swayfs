@@ -2,9 +2,9 @@
 #
 # swayfs — personal SwayFX fork focused on low RAM/CPU usage.
 #
-# This package builds *only* swayfs. The heavy dependencies are the official
-# Arch packages `scenefx` and `wlroots0.20` (both in [extra]), so no bundled
-# or AUR dependency is required.
+# This package builds *only* swayfs. The heavy dependency is the official
+# Arch package `wlroots0.20` (in [extra]), so no bundled or AUR dependency is
+# required.
 #
 # The source repository is public:
 #   https://github.com/noobmaisfier/swayfs
@@ -33,7 +33,6 @@ depends=(
   'libwayland-server.so'
   'libxcb'
   'libxkbcommon.so'
-  'scenefx'
   'ttf-font'
   'wlroots0.20'
   'xcb-util-wm'

@@ -8,7 +8,7 @@
  */
 #ifndef _SWAY_SCENE_DESCRIPTOR_H
 #define _SWAY_SCENE_DESCRIPTOR_H
-#include <scenefx/types/wlr_scene.h>
+#include "sway/scene/wlr_scene.h"
 
 enum sway_scene_descriptor_type {
 	SWAY_SCENE_DESC_BUFFER_TIMER,

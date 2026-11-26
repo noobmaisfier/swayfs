@@ -306,7 +306,6 @@ int main(int argc, char **argv) {
 
 	sway_log(SWAY_INFO, "swayfs version " SWAY_VERSION " (based on sway version " SWAY_ORIGINAL_VERSION ")");
 	sway_log(SWAY_INFO, "wlroots version " WLR_VERSION_STR);
-	sway_log(SWAY_INFO, "scenefx version " SCENEFX_VERSION);
 	log_kernel();
 	log_distro();
 	log_env();

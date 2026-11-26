@@ -5,8 +5,8 @@
 #
 # If the host has /dev/dri, it is passed through so the test does a full
 # headless start; otherwise only version/libs/installed-files are checked
-# (scenefx cannot start without a DRM node — same rule as ci/render-smoke.sh;
-# even `sway -C` needs the renderer, server.c inits it first).
+# (renderer requires a DRM node in this CI setup; even `sway -C` needs the
+# renderer, server.c inits it first).
 #
 # Usage: ci/test-installer-debian.sh [repo-root]
 # Needs a local docker daemon and the changes committed (the installer

@@ -9,18 +9,10 @@
 
 static void init_criteria_effects(struct layer_criteria *criteria) {
 	criteria->corner_radius = 0;
-	criteria->blur_enabled = false;
-	criteria->blur_xray = false;
-	criteria->blur_ignore_transparent = false;
-	criteria->shadow_enabled = false;
 }
 
 static void copy_criteria_effects(struct layer_criteria *dst, struct layer_criteria *src) {
 	dst->corner_radius = src->corner_radius;
-	dst->blur_enabled = src->blur_enabled;
-	dst->blur_xray = src->blur_xray;
-	dst->blur_ignore_transparent = src->blur_ignore_transparent;
-	dst->shadow_enabled = src->shadow_enabled;
 }
 
 static bool layer_criteria_find(char *namespace,
@@ -69,18 +61,6 @@ static bool layer_criteria_parse(struct layer_criteria *criteria) {
 			// Reset all args
 			init_criteria_effects(criteria);
 			return true;
-		} else if (strcmp(argv[0], "blur") == 0) {
-			criteria->blur_enabled = parse_boolean(argv[1], true);
-			continue;
-		} if (strcmp(argv[0], "blur_xray") == 0) {
-			criteria->blur_xray = parse_boolean(argv[1], true);
-			continue;
-		} if (strcmp(argv[0], "blur_ignore_transparent") == 0) {
-			criteria->blur_ignore_transparent = parse_boolean(argv[1], true);
-			continue;
-		} else if (strcmp(argv[0], "shadows") == 0) {
-			criteria->shadow_enabled = parse_boolean(argv[1], true);
-			continue;
 		} else if (strcmp(argv[0], "corner_radius") == 0) {
 			int value;
 			if (cmd_corner_radius_parse_value(argv[1], &value)) {

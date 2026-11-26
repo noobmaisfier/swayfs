@@ -1,12 +1,11 @@
 #ifndef _SWAY_OUTPUT_H
 #define _SWAY_OUTPUT_H
-#include <scenefx/types/wlr_scene.h>
+#include "sway/scene/wlr_scene.h"
 #include <time.h>
 #include <unistd.h>
 #include <wayland-server-core.h>
 #include <wlr/types/wlr_damage_ring.h>
 #include <wlr/types/wlr_output.h>
-#include <wlr/types/wlr_scene.h>
 #include "config.h"
 #include "sway/tree/node.h"
 #include "sway/tree/view.h"
@@ -25,8 +24,6 @@ struct sway_output {
 	struct {
 		struct wlr_scene_tree *shell_background;
 		struct wlr_scene_tree *shell_bottom;
-		// Used for optimized blur. Everything exclusively below gets blurred
-		struct wlr_scene_optimized_blur *blur_layer;
 		struct wlr_scene_tree *tiling;
 		struct wlr_scene_tree *fullscreen;
 		struct wlr_scene_tree *shell_top;

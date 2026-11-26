@@ -9,8 +9,8 @@
 # empty -> populated left the new workspace fully transparent (present,
 # arranged, input working, but invisible).
 #
-# Requires a DRM render node (scenefx has no pixman fallback): without one the
-# test is skipped, matching ci/asan-smoke.sh.
+# Requires a DRM render node: without one the test is skipped, matching
+# ci/asan-smoke.sh.
 set -u
 
 BUILD="${1:?usage: render-smoke.sh <build-dir>}"
@@ -27,7 +27,7 @@ for t in "$MSG" "$GRIM" "$FOOT"; do [ -x "$t" ] || { echo "SKIP: missing $t"; ex
 command -v jq >/dev/null || { echo "SKIP: jq not found"; exit 0; }
 command -v python3 >/dev/null || { echo "SKIP: python3 not found"; exit 0; }
 if ! compgen -G "/dev/dri/renderD*" >/dev/null 2>&1; then
-	echo "SKIP: no DRM render node; scenefx needs one for the headless test"
+	echo "SKIP: no DRM render node; skipping headless test"
 	exit 0
 fi
 

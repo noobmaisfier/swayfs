@@ -28,13 +28,11 @@ struct seatop_move_tiling_event {
 	bool split_target;
 	bool insert_after_target;
 	struct wlr_scene_rect *indicator_rect;
-	struct wlr_scene_blur *indicator_blur;
 };
 
 static void handle_end(struct sway_seat *seat) {
 	struct seatop_move_tiling_event *e = seat->seatop_data;
 	wlr_scene_node_destroy(&e->indicator_rect->node);
-	wlr_scene_node_destroy(&e->indicator_blur->node);
 	e->indicator_rect = NULL;
 }
 
@@ -57,7 +55,6 @@ static void handle_motion_prethreshold(struct sway_seat *seat) {
 	// If the threshold has been exceeded, start the actual drag
 	if ((cx - sx) * (cx - sx) + (cy - sy) * (cy - sy) > threshold) {
 		wlr_scene_node_set_enabled(&e->indicator_rect->node, true);
-		wlr_scene_node_set_enabled(&e->indicator_blur->node, true);
 		e->threshold_reached = true;
 		cursor_set_image(seat->cursor, "grab", NULL);
 	}
@@ -160,9 +157,6 @@ static void update_indicator(struct seatop_move_tiling_event *e, struct wlr_box 
 	wlr_scene_node_set_position(&e->indicator_rect->node, box->x, box->y);
 	wlr_scene_rect_set_size(e->indicator_rect, box->width, box->height);
 
-	wlr_scene_node_set_position(&e->indicator_blur->node, box->x, box->y);
-	wlr_scene_blur_set_size(e->indicator_blur, box->width, box->height);
-
 	int corner_radius = config->corner_radius;
 	if (e->con) {
 		corner_radius = e->con->corner_radius;
@@ -175,7 +169,6 @@ static void update_indicator(struct seatop_move_tiling_event *e, struct wlr_box 
 
 	int corner_radius_real = MIN(corner_radius, MIN(box->width / 2, box->height / 2));
 	wlr_scene_rect_set_corner_radii(e->indicator_rect, corner_radii_all(corner_radius_real));
-	wlr_scene_blur_set_corner_radii(e->indicator_blur, corner_radii_all(corner_radius_real));
 }
 
 static void handle_motion_postthreshold(struct sway_seat *seat) {
@@ -489,15 +482,8 @@ void seatop_begin_move_tiling_threshold(struct sway_seat *seat,
 		indicator[3] * .5,
 	};
 
-	e->indicator_blur = wlr_scene_blur_create(seat->scene_tree, 0, 0);
-	if (!e->indicator_blur) {
-		free(e);
-		return;
-	}
-
 	e->indicator_rect = wlr_scene_rect_create(seat->scene_tree, 0, 0, color);
 	if (!e->indicator_rect) {
-		wlr_scene_node_destroy(&e->indicator_blur->node);
 		free(e);
 		return;
 	}

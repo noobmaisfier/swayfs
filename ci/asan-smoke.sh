@@ -11,8 +11,7 @@
 # fails the job.
 #
 # Without a DRM render node (e.g. GitLab shared runners), the runtime part is
-# skipped: scenefx's fx_renderer requires a DRM node and has no pixman
-# fallback, so a compositor cannot be created.
+# skipped: GLES2 rounded-corner rendering requires a DRM node.
 set -u
 
 BUILD="${1:?usage: asan-smoke.sh <build-dir> [timeout]}"
@@ -27,7 +26,7 @@ export UBSAN_OPTIONS="print_stacktrace=1:halt_on_error=1"
 "$SWAY" --version || { echo "FAIL: sway --version failed"; exit 1; }
 
 if ! compgen -G "/dev/dri/renderD*" >/dev/null 2>&1; then
-	echo "SKIP: no DRM render node; scenefx needs one for the headless test"
+	echo "SKIP: no DRM render node; skipping headless test"
 	echo "PASS: sanitizer build is runnable (runtime test skipped)"
 	exit 0
 fi

@@ -285,10 +285,6 @@ following properties:
 					"y": 6
 				},
 				"effects": {
-					"blur": true,
-					"blur_xray": false,
-					"blur_ignore_transparent": false,
-					"shadows": true,
 					"corner_radius": 20
 				}
 			}

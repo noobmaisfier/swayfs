@@ -717,58 +717,6 @@ The default colors are:
 *dim_inactive_colors.urgent* <hex color>
 	The color to dim inactive urgent windows with. Example color: #900000FF
 
-*shadows* enable|disable
-	Sets whether or not shadows should be drawn. Can also be set per
-	window with *for_window*.
-
-*shadows_on_csd* enable|disable
-	Adjusts if shadows should be drawn on windows that draw their own
-	decorations. *Note:* The shadow might not fit some windows.
-
-*shadow_blur_radius* <value>
-	Adjusts the shadow blur radius of windows between 0 (disabled) and 100
-	while 20 is the default value.
-
-*shadow_color* <hex color with alpha>
-	The shadow color. Default color: #0000007F
-
-*shadow_inactive_color* <hex color with alpha>
-	The shadow color for inactive windows. Default value: *shadow_color*
-
-*shadow_offset* <x offset> <y offset>
-	Offset all box shadows by the given value.
-
-*blur* enable|disable
-	Sets whether blur should be drawn. Can also be set per window with
-	*for_window*.
-
-*blur_xray* enable|disable
-	Sets whether blur should only display the background.
-
-*blur_passes* <value>
-	Adjusts the blur passes of windows between 0 (disabled) and 10
-	while 2 is the default value.
-
-*blur_radius* <value>
-	Adjusts the blur radius of windows between 0 (disabled) and 10
-	while 5 is the default value.
-
-*blur_noise* <value>
-	Adjusts the percentage of noise applied to the blur between 0 and 1
-	while 0.02 (2%) is the default value.
-
-*blur_brightness* <value>
-	Adjusts the percentage of brightness for the blur between 0 and 2
-	while 0.9 (90%) is the default value.
-
-*blur_contrast* <value>
-	Adjusts the percentage of contrast for the blur between 0 and 2
-	while 0.9 (90%) is the default value.
-
-*blur_saturation* <value>
-	Adjusts the percentage of saturation for the blur between 0 and 2
-	while 1.1 (110%) is the default value.
-
 *default_border* normal|none|pixel [<n>]
 	Set default border style for new tiled windows. Config reload won't affect
 	existing windows, only newly created ones after the reload.
@@ -861,27 +809,18 @@ The default colors are:
 	use these effects.
 
 	Effects:
-	- *blur* <enable|disable>
-	- *blur_xray* <enable|disable>
-	- *blur_ignore_transparent* <enable|disable>
-	- *shadows* <enable|disable>
 	- *corner_radius* <integer>
-	- *reset* Resets all previously applied effects
 	- *reset* To reset/disable all previously applied effects to the layer application
 
 	Example:
 
 		layer_effects "waybar" {
-			blur enable;
-			blur_xray enable;
-			blur_ignore_transparent enable;
-			shadows enable;
 			corner_radius 6;
 		}
 
 	SwayIPC Example (you can only set one effect at a time through `swaymsg`):
 
-		swaymsg layer_effects "waybar" "blur enable"
+		swaymsg layer_effects "waybar" "corner_radius 6"
 
 *gaps* inner|outer|horizontal|vertical|top|right|bottom|left <amount>
 	Sets default _amount_ pixels of _inner_ or _outer_ gap, where the inner

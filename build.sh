@@ -14,12 +14,6 @@ ls -l ${OPT_SWAYFX}/lib/${DEB_BUILD_GNU_TYPE}/pkgconfig
 echo "wlroots DONE"
 
 PKG_CONFIG_PATH="${OPT_SWAYFX}/lib/${DEB_BUILD_GNU_TYPE}/pkgconfig/${PKG_CONFIG_PATH+:${PKG_CONFIG_PATH}}" \
-meson setup --prefix ${OPT_SWAYFX} --cmake-prefix-path ${OPT_SWAYFX} "scenefx-${SCENEFXVERSION}/build/" "scenefx-${SCENEFXVERSION}"
-ninja -C "scenefx-${SCENEFXVERSION}/build/"
-ninja -C "scenefx-${SCENEFXVERSION}/build/" install
-echo "scenefx DONE"
-
-PKG_CONFIG_PATH="${OPT_SWAYFX}/lib/${DEB_BUILD_GNU_TYPE}/pkgconfig/${PKG_CONFIG_PATH+:${PKG_CONFIG_PATH}}" \
 meson setup --prefix ${OPT_SWAYFX} --cmake-prefix-path ${OPT_SWAYFX} "swayfx-${SWAYFXVERSION}/build/" "swayfx-${SWAYFXVERSION}"
 ninja -C "swayfx-${SWAYFXVERSION}/build/"
 ninja -C "swayfx-${SWAYFXVERSION}/build/" install

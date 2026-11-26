@@ -1,11 +1,10 @@
 #ifndef _SWAY_ROOT_H
 #define _SWAY_ROOT_H
-#include <scenefx/types/wlr_scene.h>
+#include "sway/scene/wlr_scene.h"
 #include <wayland-server-core.h>
 #include <wayland-util.h>
 #include <wlr/config.h>
 #include <wlr/types/wlr_output_layout.h>
-#include <wlr/types/wlr_scene.h>
 #include <wlr/render/wlr_texture.h>
 #include "sway/tree/container.h"
 #include "sway/tree/node.h"
@@ -41,7 +40,6 @@ struct sway_root {
 	struct {
 		struct wlr_scene_tree *shell_background;
 		struct wlr_scene_tree *shell_bottom;
-		struct wlr_scene_tree *blur_tree;
 		struct wlr_scene_tree *tiling;
 		struct wlr_scene_tree *floating;
 		struct wlr_scene_tree *shell_top;

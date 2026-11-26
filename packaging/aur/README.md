@@ -1,7 +1,7 @@
 # Arch Linux packaging
 
 `swayfs/PKGBUILD` builds this fork from a release tag and relies on the
-official `[extra]` packages `scenefx` and `wlroots0.20` — no bundled or AUR
+official `[extra]` package `wlroots0.20` — no bundled or AUR
 dependency is required.
 
 The package is called `swayfs`, provides `sway`, and conflicts with `sway`,
@@ -53,7 +53,7 @@ git archive --format=tar.gz --prefix=swayfs-0.6.swayfs.4/ \
 
 cd packaging/aur/swayfs
 makepkg -od                  # source verification/extraction only
-sudo pacman -S --needed --asdeps base-devel scenefx wlroots0.20
+sudo pacman -S --needed --asdeps base-devel wlroots0.20
 makepkg -si                  # full build + install
 ```
 

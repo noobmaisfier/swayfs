@@ -10,11 +10,10 @@ on:
 
 env:
   WLR_TAG: "0.20.2"
-  SCENEFX_TAG: "0.5"
 
 jobs:
   arch:
-    name: Arch Linux (system scenefx + wlroots0.20)
+    name: Arch Linux (system wlroots0.20)
     runs-on: ubuntu-latest
     container: archlinux:latest
     steps:
@@ -26,7 +25,7 @@ jobs:
             wayland wayland-protocols libxkbcommon libinput libdrm libxcb xcb-util-wm \
             json-c pcre2 cairo fcft fontconfig libevdev pixman \
             libdisplay-info seatd hwdata mesa libglvnd lcms2 scdoc \
-            scenefx wlroots0.20
+            wlroots0.20
       - name: Configure
         run: arch-meson . build -Dwerror=false -Dman-pages=enabled
       - name: Compile
@@ -38,14 +37,14 @@ jobs:
           path: build/sway/sway
 
   debian:
-    name: Debian stable (wlroots + scenefx from source)
+    name: Debian stable (wlroots from source)
     runs-on: ubuntu-latest
     container: debian:stable-slim
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
-        # Same list as INSTALL-deb.md: Debian has no wlroots-0.20/scenefx
-        # packages, so both are built as meson subprojects (see next step).
+        # Same list as INSTALL-deb.md: Debian has no wlroots-0.20
+        # package, so it is built as a meson subproject (see next step).
         run: |
           apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             ca-certificates git meson ninja-build gcc pkg-config scdoc bison python3-jinja2 \
@@ -68,12 +67,12 @@ jobs:
         # (Debian stable ships 0.44); see ci/install-pixman-prefix.sh.
         run: bash ci/install-pixman-prefix.sh
       - name: Configure
-        # Per-subproject werror=false: wlroots/scenefx force werror=true in
-        # their defaults, which GCC 14 trips over (e.g. unused 'box' in
+        # Per-subproject werror=false: wlroots forces werror=true in
+        # its defaults, which GCC 14 trips over (e.g. unused 'box' in
         # wlroots render/pass.c). Our own code keeps -Dwerror=false.
         run: >-
           meson setup build -Dwerror=false -Dman-pages=enabled
-          -Dwlroots:werror=false -Dscenefx:werror=false -Dwayland:werror=false
+          -Dwlroots:werror=false -Dwayland:werror=false
           -Dwayland-protocols:werror=false -Dlibdrm:werror=false
           -Dlibxkbcommon:werror=false
       - name: Compile

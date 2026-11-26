@@ -10,13 +10,12 @@
 #
 # This is a developer tool, not a CI gate. To compare two builds, run it once
 # per binary and diff the RESULT lines; for a fair A/B both must link the same
-# scenefx/wlroots and open the same number of clients. Example:
+# wlroots and open the same number of clients. Example:
 #
 #   ci/measure-ram.sh build-upstream/sway/sway upstream 6 off
 #   ci/measure-ram.sh build/sway/sway          fork     6 off
 #
-# Requires a DRM render node (scenefx has no pixman fallback), plus foot,
-# swaymsg and jq.
+# Requires a DRM render node, plus foot, swaymsg and jq.
 set -u
 SWAY="${1:?usage: measure-ram.sh <sway-binary> <label> <n-clients> [off|on]}"
 LABEL="${2:?missing label}"
@@ -28,7 +27,7 @@ FOOT="$(command -v foot || echo /usr/sbin/foot)"
 [ -x "$SWAY" ] || { echo "ERROR: $SWAY not found"; exit 1; }
 command -v jq >/dev/null || { echo "ERROR: jq not found"; exit 1; }
 if ! compgen -G "/dev/dri/renderD*" >/dev/null 2>&1; then
-	echo "SKIP: no DRM render node; scenefx needs one for the headless test"
+	echo "SKIP: no DRM render node; skipping headless test"
 	exit 0
 fi
 
@@ -41,11 +40,6 @@ CONF="$TMP/config"
 	echo "animation_duration_ms 0"
 	echo "output HEADLESS-1 pos 0 0 res 1200x800"
 	if [ "$FX" = on ]; then
-		echo "blur enable"
-		echo "blur_radius 8"
-		echo "blur_passes 2"
-		echo "shadows enable"
-		echo "shadow_blur_radius 20"
 		echo "corner_radius 8"
 	fi
 } > "$CONF"

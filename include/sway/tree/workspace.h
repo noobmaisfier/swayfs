@@ -1,7 +1,7 @@
 #ifndef _SWAY_WORKSPACE_H
 #define _SWAY_WORKSPACE_H
 
-#include <scenefx/types/wlr_scene.h>
+#include "sway/scene/wlr_scene.h"
 #include <stdbool.h>
 #include <wlr/types/wlr_ext_workspace_v1.h>
 #include "sway/animation_manager.h"

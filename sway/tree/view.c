@@ -1074,8 +1074,6 @@ void view_center_and_clip_surface(struct sway_view *view) {
 		int x = (int) fmax(0, (con->current.content_width - view->geometry.width) / 2);
 		int y = (int) fmax(0, (con->current.content_height - view->geometry.height) / 2);
 		clip_to_geometry = !view->using_csd
-			|| con->blur_enabled
-			|| con->shadow_enabled
 			|| con->corner_radius > 0;
 
 		wlr_scene_node_set_position(&view->content_tree->node, x, y);

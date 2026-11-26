@@ -10,19 +10,12 @@
       url = "github:numtide/flake-utils";
       inputs.systems.follows = "systems";
     };
-
-    scenefx = {
-      url = "github:wlrfx/scenefx";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.flake-utils.follows = "flake-utils";
-    };
   };
 
-  outputs = { self, nixpkgs, flake-utils, scenefx, ... }:
+  outputs = { self, nixpkgs, flake-utils, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs { inherit system; };
-        scenefx-git = scenefx.packages.${system}.scenefx-git;
 
       in {
         packages = rec {
@@ -52,7 +45,7 @@
               libdrm
               libxcb-wm
               wlroots_0_20
-            ] ++ [ scenefx-git ];
+            ];
           });
 
           default = swayfs-unwrapped-git;
@@ -62,19 +55,8 @@
           name = "swayfs-shell";
           inputsFrom = [
             self.packages.${system}.swayfs-unwrapped-git
-            scenefx-git
           ];
           packages = [ pkgs.gdb ]; # add debugging packages
-          shellHook = ''
-            (
-              mkdir -p "$PWD/subprojects" && cd "$PWD/subprojects"
-              if [ ! -d scenefx ]; then
-                echo "Copying scenefx to ./subprojects..."
-                cp -R --no-preserve=mode,ownership ${scenefx-git.src} scenefx
-              fi
-              cd "$OLDPWD"
-            ) || echo "Failed to copy subproject sources."
-          '';
           hardeningDisable = [ "fortify" ];
         };
 
