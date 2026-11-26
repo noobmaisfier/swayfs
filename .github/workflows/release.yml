@@ -45,6 +45,25 @@ jobs:
       - name: Publish GitHub Release asset
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
           files: |
             dist/swayfs-[0-9]*.pkg.tar.zst
           generate_release_notes: true
+
+      - name: Dispatch update to noobmaisfier/repo (if REPO_DISPATCH_TOKEN is set)
+        env:
+          REPO_DISPATCH_TOKEN: ${{ secrets.REPO_DISPATCH_TOKEN }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          if [ -z "${REPO_DISPATCH_TOKEN:-}" ]; then
+            echo "REPO_DISPATCH_TOKEN not set; noobmaisfier/repo sync-releases.yml will pick it up on schedule."
+            exit 0
+          fi
+          TAG="${INPUT_TAG:-$GITHUB_REF_NAME}"
+          pkg="$(basename "$(ls "$GITHUB_WORKSPACE/dist"/swayfs-[0-9]*.pkg.tar.zst | head -n 1)")"
+          pkg_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${pkg}"
+          curl -fsSL -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${REPO_DISPATCH_TOKEN}" \
+            "https://api.github.com/repos/noobmaisfier/repo/dispatches" \
+            -d "{\"event_type\":\"publish-pkg\",\"client_payload\":{\"pkg_url\":\"${pkg_url}\"}}"
