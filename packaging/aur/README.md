@@ -28,8 +28,9 @@ curl -fsSLO https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/mai
 makepkg -si
 ```
 
-A prebuilt package may also be attached to a GitHub release:
-<https://github.com/noobmaisfier/swayfs/releases>.
+A prebuilt package and the shared `[noobmaisfier]` pacman repository are hosted
+on <https://github.com/noobmaisfier/repo> (individual release assets are also on
+<https://github.com/noobmaisfier/swayfs/releases>).
 
 ## Build locally
 

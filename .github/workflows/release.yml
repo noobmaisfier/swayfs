@@ -1,0 +1,53 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (defaults to ref name)'
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  arch-package:
+    name: Build Arch x86_64 package
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install build dependencies
+        run: |
+          pacman -Syu --noconfirm --needed \
+            base-devel meson ninja pkgconf git scdoc \
+            wayland wayland-protocols libxkbcommon libinput libdrm libxcb xcb-util-wm \
+            json-c pcre2 cairo fcft fontconfig libevdev pixman \
+            libdisplay-info seatd hwdata mesa libglvnd lcms2 wlroots0.20
+
+      - name: Build package with makepkg
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          PKGVER="${TAG#v}"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          useradd -m -s /bin/bash builder
+          echo 'builder ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/builder
+          git archive --format=tar.gz --prefix="swayfs-${PKGVER}/" \
+            -o "packaging/aur/swayfs/swayfs-${PKGVER}.tar.gz" HEAD
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+          su - builder -c "cd '$GITHUB_WORKSPACE/packaging/aur/swayfs' && PKGDEST='$GITHUB_WORKSPACE/dist' makepkg --skipchecksums -fc --noconfirm"
+          ls -la "$GITHUB_WORKSPACE/dist"
+
+      - name: Publish GitHub Release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/swayfs-[0-9]*.pkg.tar.zst
+          generate_release_notes: true

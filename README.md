@@ -75,7 +75,24 @@ alone, and `/etc/sway/config` is registered as a pacman backup file.
 The official package `wlroots0.20` (in `[extra]`) is used; no AUR dependency
 is required.
 
-#### A. Installer
+#### A. Custom pacman repository (`[noobmaisfier]`)
+
+Add the shared [`noobmaisfier/repo`](https://github.com/noobmaisfier/repo)
+repository once to `/etc/pacman.conf`:
+
+```ini
+[noobmaisfier]
+SigLevel = Optional TrustAll
+Server = https://github.com/noobmaisfier/repo/releases/download/$arch
+```
+
+Then sync and install or upgrade `swayfs` directly with `pacman`:
+
+```sh
+sudo pacman -Syu swayfs
+```
+
+#### B. Installer
 
 The installer fetches the `PKGBUILD` for the current release, then `makepkg`
 downloads the tagged source archive, verifies its checksum, builds and installs
@@ -91,7 +108,7 @@ Inspect it first if you prefer:
 curl -fsSL https://raw.githubusercontent.com/noobmaisfier/swayfs/refs/heads/main/packaging/aur/install.sh | less
 ```
 
-#### B. Prebuilt package from a release
+#### C. Prebuilt package from a release
 
 Release pages may include a prebuilt package
 (`swayfs-<version>-<pkgrel>-x86_64.pkg.tar.zst`). Download it from
@@ -102,9 +119,9 @@ sudo pacman -U swayfs-<version>-<pkgrel>-x86_64.pkg.tar.zst
 ```
 
 The package is built by the maintainer for the current Arch `x86_64` repos; if
-your system is older than the build environment, prefer option A.
+your system is older than the build environment, prefer option B.
 
-#### C. Manual build with makepkg
+#### D. Manual build with makepkg
 
 ```sh
 mkdir -p ~/build/swayfs && cd ~/build/swayfs
