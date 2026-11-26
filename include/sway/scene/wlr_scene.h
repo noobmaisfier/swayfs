@@ -221,6 +221,7 @@ struct wlr_scene_output {
 		bool prev_scanout;
 
 		bool gamma_lut_changed;
+		bool gamma_lut_sw;
 		struct wlr_gamma_control_v1 *gamma_lut;
 		struct wlr_color_transform *gamma_lut_color_transform;
 

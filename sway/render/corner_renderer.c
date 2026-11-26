@@ -37,6 +37,8 @@ struct sway_tex_program {
 	GLint alpha_loc;
 	GLint has_alpha_loc;
 	GLint corners_loc;
+	GLint gamma_lut_loc;
+	GLint gamma_params_loc;
 };
 
 struct sway_corner_renderer {
@@ -49,10 +51,12 @@ struct sway_corner_renderer {
 	PFNEGLCREATESYNCKHRPROC eglCreateSyncKHR;
 	PFNEGLDESTROYSYNCKHRPROC eglDestroySyncKHR;
 	PFNEGLWAITSYNCKHRPROC eglWaitSyncKHR;
+	PFNEGLDUPNATIVEFENCEFDANDROIDPROC eglDupNativeFenceFDANDROID;
 
 	struct sway_rect_program rect_prog;
 	struct sway_tex_program tex_2d_prog;
 	struct sway_tex_program tex_oes_prog;
+	GLuint gamma_tex;
 
 	EGLDisplay prev_dpy;
 	EGLSurface prev_draw;
@@ -128,60 +132,49 @@ static const char *rect_frag_src =
 	"    gl_FragColor = u_color * alpha;\n"
 	"}\n";
 
+#define TEX_FRAG_BODY \
+	"varying vec2 v_local_pos;\n" \
+	"varying vec2 v_texcoord;\n" \
+	"uniform vec2 u_size;\n" \
+	"uniform float u_alpha;\n" \
+	"uniform float u_has_alpha;\n" \
+	"uniform vec4 u_corners;\n" \
+	"uniform sampler2D u_gamma_lut;\n" \
+	"uniform vec2 u_gamma_params;\n" \
+	"float sdRoundedBox(vec2 p, vec2 half_size, vec4 r) {\n" \
+	"    vec2 r2 = (p.x > 0.0) ? vec2(r.y, r.z) : vec2(r.x, r.w);\n" \
+	"    float rad = (p.y > 0.0) ? r2.y : r2.x;\n" \
+	"    rad = min(rad, min(half_size.x, half_size.y));\n" \
+	"    vec2 q = abs(p) - half_size + rad;\n" \
+	"    return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - rad;\n" \
+	"}\n" \
+	"void main() {\n" \
+	"    vec4 tex = texture2D(u_tex, v_texcoord);\n" \
+	"    if (u_has_alpha < 0.5) {\n" \
+	"        tex.a = 1.0;\n" \
+	"    }\n" \
+	"    if (u_gamma_params.x > 0.0) {\n" \
+	"        vec3 lut_uv = clamp(tex.rgb, 0.0, 1.0) * u_gamma_params.x + u_gamma_params.y;\n" \
+	"        tex.r = texture2D(u_gamma_lut, vec2(lut_uv.r, 0.5)).r;\n" \
+	"        tex.g = texture2D(u_gamma_lut, vec2(lut_uv.g, 0.5)).g;\n" \
+	"        tex.b = texture2D(u_gamma_lut, vec2(lut_uv.b, 0.5)).b;\n" \
+	"    }\n" \
+	"    vec2 half_size = 0.5 * u_size;\n" \
+	"    float d = sdRoundedBox(v_local_pos - half_size, half_size, u_corners);\n" \
+	"    float corner_alpha = clamp(0.5 - d, 0.0, 1.0);\n" \
+	"    gl_FragColor = tex * (u_alpha * corner_alpha);\n" \
+	"}\n"
+
 static const char *tex_2d_frag_src =
 	GLSL_PRECISION
-	"varying vec2 v_local_pos;\n"
-	"varying vec2 v_texcoord;\n"
 	"uniform sampler2D u_tex;\n"
-	"uniform vec2 u_size;\n"
-	"uniform float u_alpha;\n"
-	"uniform float u_has_alpha;\n"
-	"uniform vec4 u_corners;\n"
-	"float sdRoundedBox(vec2 p, vec2 half_size, vec4 r) {\n"
-	"    vec2 r2 = (p.x > 0.0) ? vec2(r.y, r.z) : vec2(r.x, r.w);\n"
-	"    float rad = (p.y > 0.0) ? r2.y : r2.x;\n"
-	"    rad = min(rad, min(half_size.x, half_size.y));\n"
-	"    vec2 q = abs(p) - half_size + rad;\n"
-	"    return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - rad;\n"
-	"}\n"
-	"void main() {\n"
-	"    vec4 tex = texture2D(u_tex, v_texcoord);\n"
-	"    if (u_has_alpha < 0.5) {\n"
-	"        tex.a = 1.0;\n"
-	"    }\n"
-	"    vec2 half_size = 0.5 * u_size;\n"
-	"    float d = sdRoundedBox(v_local_pos - half_size, half_size, u_corners);\n"
-	"    float corner_alpha = clamp(0.5 - d, 0.0, 1.0);\n"
-	"    gl_FragColor = tex * (u_alpha * corner_alpha);\n"
-	"}\n";
+	TEX_FRAG_BODY;
 
 static const char *tex_oes_frag_src =
 	"#extension GL_OES_EGL_image_external : require\n"
 	GLSL_PRECISION
-	"varying vec2 v_local_pos;\n"
-	"varying vec2 v_texcoord;\n"
 	"uniform samplerExternalOES u_tex;\n"
-	"uniform vec2 u_size;\n"
-	"uniform float u_alpha;\n"
-	"uniform float u_has_alpha;\n"
-	"uniform vec4 u_corners;\n"
-	"float sdRoundedBox(vec2 p, vec2 half_size, vec4 r) {\n"
-	"    vec2 r2 = (p.x > 0.0) ? vec2(r.y, r.z) : vec2(r.x, r.w);\n"
-	"    float rad = (p.y > 0.0) ? r2.y : r2.x;\n"
-	"    rad = min(rad, min(half_size.x, half_size.y));\n"
-	"    vec2 q = abs(p) - half_size + rad;\n"
-	"    return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - rad;\n"
-	"}\n"
-	"void main() {\n"
-	"    vec4 tex = texture2D(u_tex, v_texcoord);\n"
-	"    if (u_has_alpha < 0.5) {\n"
-	"        tex.a = 1.0;\n"
-	"    }\n"
-	"    vec2 half_size = 0.5 * u_size;\n"
-	"    float d = sdRoundedBox(v_local_pos - half_size, half_size, u_corners);\n"
-	"    float corner_alpha = clamp(0.5 - d, 0.0, 1.0);\n"
-	"    gl_FragColor = tex * (u_alpha * corner_alpha);\n"
-	"}\n";
+	TEX_FRAG_BODY;
 
 static GLuint compile_shader(GLenum type, const char *src) {
 	GLuint shader = glCreateShader(type);
@@ -295,6 +288,8 @@ static bool init_programs(struct sway_corner_renderer *cr) {
 		.alpha_loc = glGetUniformLocation(tp2d, "u_alpha"),
 		.has_alpha_loc = glGetUniformLocation(tp2d, "u_has_alpha"),
 		.corners_loc = glGetUniformLocation(tp2d, "u_corners"),
+		.gamma_lut_loc = glGetUniformLocation(tp2d, "u_gamma_lut"),
+		.gamma_params_loc = glGetUniformLocation(tp2d, "u_gamma_params"),
 	};
 
 	cr->has_oes_external = wlr_gles2_renderer_check_ext(
@@ -312,6 +307,8 @@ static bool init_programs(struct sway_corner_renderer *cr) {
 				.alpha_loc = glGetUniformLocation(tpoes, "u_alpha"),
 				.has_alpha_loc = glGetUniformLocation(tpoes, "u_has_alpha"),
 				.corners_loc = glGetUniformLocation(tpoes, "u_corners"),
+				.gamma_lut_loc = glGetUniformLocation(tpoes, "u_gamma_lut"),
+				.gamma_params_loc = glGetUniformLocation(tpoes, "u_gamma_params"),
 			};
 		}
 	}
@@ -324,6 +321,8 @@ static bool init_programs(struct sway_corner_renderer *cr) {
 		cr->eglCreateSyncKHR = (PFNEGLCREATESYNCKHRPROC)eglGetProcAddress("eglCreateSyncKHR");
 		cr->eglDestroySyncKHR = (PFNEGLDESTROYSYNCKHRPROC)eglGetProcAddress("eglDestroySyncKHR");
 		cr->eglWaitSyncKHR = (PFNEGLWAITSYNCKHRPROC)eglGetProcAddress("eglWaitSyncKHR");
+		cr->eglDupNativeFenceFDANDROID = (PFNEGLDUPNATIVEFENCEFDANDROIDPROC)
+			eglGetProcAddress("eglDupNativeFenceFDANDROID");
 		cr->has_native_fence_sync = cr->eglCreateSyncKHR && cr->eglDestroySyncKHR && cr->eglWaitSyncKHR;
 	}
 
@@ -376,6 +375,9 @@ void sway_corner_renderer_destroy(struct sway_corner_renderer *cr) {
 		if (cr->tex_oes_prog.program) {
 			glDeleteProgram(cr->tex_oes_prog.program);
 		}
+		if (cr->gamma_tex) {
+			glDeleteTextures(1, &cr->gamma_tex);
+		}
 		pop_egl_ctx(cr);
 	}
 	free(cr);
@@ -412,7 +414,40 @@ bool sway_corner_renderer_begin(struct sway_corner_renderer *cr,
 	return true;
 }
 
-void sway_corner_renderer_end(struct sway_corner_renderer *cr) {
+bool sway_corner_renderer_end_sync(struct sway_corner_renderer *cr,
+		struct wlr_drm_syncobj_timeline *signal_timeline, uint64_t signal_point) {
+	if (!cr || !cr->ctx_active) {
+		return false;
+	}
+	glDisable(GL_SCISSOR_TEST);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	bool synced = false;
+	if (signal_timeline && cr->has_native_fence_sync && cr->eglDupNativeFenceFDANDROID) {
+		struct wlr_egl *wlr_egl = wlr_gles2_renderer_get_egl(cr->wlr_renderer);
+		EGLDisplay dpy = wlr_egl_get_display(wlr_egl);
+		EGLSyncKHR sync = cr->eglCreateSyncKHR(dpy, EGL_SYNC_NATIVE_FENCE_ANDROID, NULL);
+		if (sync != EGL_NO_SYNC_KHR) {
+			int fence_fd = cr->eglDupNativeFenceFDANDROID(dpy, sync);
+			cr->eglDestroySyncKHR(dpy, sync);
+			if (fence_fd >= 0) {
+				synced = wlr_drm_syncobj_timeline_import_sync_file(
+					signal_timeline, signal_point, fence_fd);
+				close(fence_fd);
+			}
+		}
+	}
+
+	if (!synced) {
+		// Ensure FBO rendering is complete before scanout when no fence FD was exported
+		glFinish();
+	}
+
+	pop_egl_ctx(cr);
+	return synced;
+}
+
+void sway_corner_renderer_end_flush(struct sway_corner_renderer *cr) {
 	if (!cr || !cr->ctx_active) {
 		return;
 	}
@@ -420,6 +455,10 @@ void sway_corner_renderer_end(struct sway_corner_renderer *cr) {
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glFlush();
 	pop_egl_ctx(cr);
+}
+
+void sway_corner_renderer_end(struct sway_corner_renderer *cr) {
+	sway_corner_renderer_end_sync(cr, NULL, 0);
 }
 
 void sway_corner_renderer_clear_damage(struct sway_corner_renderer *cr,
@@ -628,7 +667,7 @@ void sway_corner_renderer_draw_rect(struct sway_corner_renderer *cr,
 	glDisableVertexAttribArray(p->pos_attrib);
 }
 
-void sway_corner_renderer_draw_texture(struct sway_corner_renderer *cr,
+static void draw_texture_internal(struct sway_corner_renderer *cr,
 		struct wlr_texture *texture,
 		const struct wlr_fbox *src_box,
 		const struct wlr_box *dst_box,
@@ -640,6 +679,8 @@ void sway_corner_renderer_draw_texture(struct sway_corner_renderer *cr,
 		const struct fx_corner_radii *corners_scaled,
 		struct wlr_drm_syncobj_timeline *wait_timeline,
 		uint64_t wait_point,
+		const uint16_t *gamma_table,
+		size_t gamma_size,
 		const pixman_region32_t *damage) {
 	if (!texture || dst_box->width <= 0 || dst_box->height <= 0 ||
 			pixman_region32_empty(damage)) {
@@ -703,15 +744,6 @@ void sway_corner_renderer_draw_texture(struct sway_corner_renderer *cr,
 		(float)(sbox.x / tr_w), (float)(sbox.y / tr_h), 1.0f,
 	};
 
-	// Undo tex_transform to get raw texture UV coords in [0,1]^2
-	// Note: if tex_transform rotates content 90 CW to upright, sampling upright->raw
-	// applies tex_transform directly or its inverse:
-	// Example: surface committed with TRANSFORM_90 means buffer was rotated 90 CW by client,
-	// so upright top-left (0,0) corresponds to buffer's (0,1) or (1,0)?
-	// In Wayland wl_surface.set_buffer_transform(90): client rotated buffer 90 deg CCW
-	// (so compositor rotates 90 deg CW to display upright). Thus upright (0,0)->(1,0)
-	// wait: mats[90] sends (0,0)->(1,0), (1,0)->(1,1), (0,1)->(0,0);
-	// its inverse mats[270] sends (0,0)->(0,1), (1,0)->(0,0), (0,1)->(1,1).
 	float tex_tr_mat[9];
 	mat3_transform_unit_square(tex_tr_mat, wlr_output_transform_invert(tex_transform));
 
@@ -748,10 +780,82 @@ void sway_corner_renderer_draw_texture(struct sway_corner_renderer *cr,
 		glUniform4f(p->corners_loc, 0.0f, 0.0f, 0.0f, 0.0f);
 	}
 
+	if (gamma_table && gamma_size > 1) {
+		uint8_t *rgba = malloc(gamma_size * 4);
+		if (rgba) {
+			const uint16_t *r = gamma_table;
+			const uint16_t *g = gamma_table + gamma_size;
+			const uint16_t *b = gamma_table + 2 * gamma_size;
+			for (size_t i = 0; i < gamma_size; i++) {
+				rgba[i * 4 + 0] = (uint8_t)(r[i] >> 8);
+				rgba[i * 4 + 1] = (uint8_t)(g[i] >> 8);
+				rgba[i * 4 + 2] = (uint8_t)(b[i] >> 8);
+				rgba[i * 4 + 3] = 255;
+			}
+			if (!cr->gamma_tex) {
+				glGenTextures(1, &cr->gamma_tex);
+			}
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, cr->gamma_tex);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)gamma_size, 1, 0,
+				GL_RGBA, GL_UNSIGNED_BYTE, rgba);
+			free(rgba);
+
+			glUniform1i(p->gamma_lut_loc, 1);
+			float n = (float)gamma_size;
+			glUniform2f(p->gamma_params_loc, (n - 1.0f) / n, 0.5f / n);
+		} else {
+			glUniform2f(p->gamma_params_loc, 0.0f, 0.0f);
+		}
+	} else {
+		glUniform2f(p->gamma_params_loc, 0.0f, 0.0f);
+	}
+
 	glVertexAttribPointer(p->pos_attrib, 2, GL_FLOAT, GL_FALSE, 0, quad_verts);
 	glEnableVertexAttribArray(p->pos_attrib);
 	draw_scissored_quad(damage);
 	glDisableVertexAttribArray(p->pos_attrib);
 
+	if (gamma_table && gamma_size > 1) {
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, 0);
+	}
+	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(attribs.target, 0);
+}
+
+void sway_corner_renderer_draw_texture(struct sway_corner_renderer *cr,
+		struct wlr_texture *texture,
+		const struct wlr_fbox *src_box,
+		const struct wlr_box *dst_box,
+		enum wl_output_transform tex_transform,
+		enum wl_output_transform output_transform,
+		int out_width, int out_height,
+		float alpha,
+		enum wlr_scale_filter_mode filter_mode,
+		const struct fx_corner_radii *corners_scaled,
+		struct wlr_drm_syncobj_timeline *wait_timeline,
+		uint64_t wait_point,
+		const pixman_region32_t *damage) {
+	draw_texture_internal(cr, texture, src_box, dst_box, tex_transform,
+		output_transform, out_width, out_height, alpha, filter_mode,
+		corners_scaled, wait_timeline, wait_point, NULL, 0, damage);
+}
+
+void sway_corner_renderer_draw_gamma_blit(struct sway_corner_renderer *cr,
+		struct wlr_texture *texture,
+		int out_width, int out_height,
+		const uint16_t *gamma_table, size_t gamma_size,
+		const pixman_region32_t *damage) {
+	struct wlr_box dst = { 0, 0, out_width, out_height };
+	glDisable(GL_BLEND);
+	draw_texture_internal(cr, texture, NULL, &dst,
+		WL_OUTPUT_TRANSFORM_NORMAL, WL_OUTPUT_TRANSFORM_NORMAL,
+		out_width, out_height, 1.0f, WLR_SCALE_FILTER_NEAREST,
+		NULL, NULL, 0, gamma_table, gamma_size, damage);
+	glEnable(GL_BLEND);
 }

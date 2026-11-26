@@ -477,11 +477,10 @@ static void scene_node_for_each_buffer_rec(struct wlr_scene_node *node,
 
 void wlr_scene_node_for_each_buffer(struct wlr_scene_node *node,
 		wlr_scene_buffer_iterator_func_t iterator, void *user_data) {
-	int lx = 0, ly = 0;
-	if (!wlr_scene_node_coords(node, &lx, &ly)) {
+	if (!node || !node->enabled) {
 		return;
 	}
-	scene_node_for_each_buffer_rec(node, lx, ly, iterator, user_data);
+	scene_node_for_each_buffer_rec(node, node->x, node->y, iterator, user_data);
 }
 
 struct wlr_scene_node *wlr_scene_node_at(struct wlr_scene_node *node,
@@ -594,6 +593,9 @@ static void handle_gamma_control_set_gamma(struct wl_listener *listener, void *d
 void wlr_scene_set_gamma_control_manager_v1(struct wlr_scene *scene,
 		struct wlr_gamma_control_manager_v1 *gamma_control) {
 	assert(!scene->gamma_control_manager_v1);
+	if (gamma_control->fallback_gamma_size == 0) {
+		gamma_control->fallback_gamma_size = 1024;
+	}
 	scene->gamma_control_manager_v1 = gamma_control;
 	scene->WLR_PRIVATE.gamma_control_manager_v1_destroy.notify = handle_gamma_control_destroy;
 	wl_signal_add(&gamma_control->events.destroy,

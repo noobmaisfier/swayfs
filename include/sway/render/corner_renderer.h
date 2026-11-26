@@ -14,6 +14,7 @@
 #include "sway/scene/corner_radii.h"
 
 struct sway_corner_renderer;
+struct wlr_drm_syncobj_timeline;
 
 struct sway_corner_renderer *sway_corner_renderer_for_wlr(struct wlr_renderer *renderer);
 
@@ -23,6 +24,17 @@ bool sway_corner_renderer_begin(struct sway_corner_renderer *cr,
 		struct wlr_buffer *dst_buffer, const pixman_region32_t *damage);
 
 void sway_corner_renderer_end(struct sway_corner_renderer *cr);
+
+void sway_corner_renderer_end_flush(struct sway_corner_renderer *cr);
+
+bool sway_corner_renderer_end_sync(struct sway_corner_renderer *cr,
+		struct wlr_drm_syncobj_timeline *signal_timeline, uint64_t signal_point);
+
+void sway_corner_renderer_draw_gamma_blit(struct sway_corner_renderer *cr,
+		struct wlr_texture *texture,
+		int out_width, int out_height,
+		const uint16_t *gamma_table, size_t gamma_size,
+		const pixman_region32_t *damage);
 
 void sway_corner_renderer_clear_damage(struct sway_corner_renderer *cr,
 		const pixman_region32_t *damage, float r, float g, float b, float a);

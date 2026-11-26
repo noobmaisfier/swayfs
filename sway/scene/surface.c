@@ -136,6 +136,12 @@ static void scene_surface_update_state(struct wlr_scene_surface *scene_surface) 
 static void handle_scene_surface_commit(struct wl_listener *listener, void *data) {
 	struct wlr_scene_surface *scene_surface = wl_container_of(
 		listener, scene_surface, WLR_PRIVATE.surface_commit);
+	struct wlr_linux_drm_syncobj_surface_v1_state *syncobj =
+		wlr_linux_drm_syncobj_v1_get_surface_state(scene_surface->surface);
+	if (syncobj && scene_surface->surface->buffer) {
+		wlr_linux_drm_syncobj_v1_state_signal_release_with_buffer(
+			syncobj, &scene_surface->surface->buffer->base);
+	}
 	scene_surface_update_state(scene_surface);
 }
 

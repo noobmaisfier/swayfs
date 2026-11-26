@@ -2,6 +2,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <wlr/backend.h>
 #include <wlr/render/allocator.h>
 #include <wlr/render/color.h>
 #include <wlr/render/drm_syncobj.h>
@@ -269,6 +270,23 @@ struct wlr_scene_output *wlr_scene_output_create(struct wlr_scene *scene,
 	so->WLR_PRIVATE.output_needs_frame.notify = handle_output_needs_frame;
 	wl_signal_add(&output->events.needs_frame, &so->WLR_PRIVATE.output_needs_frame);
 
+	int drm_fd = wlr_backend_get_drm_fd(output->backend);
+	if (drm_fd >= 0 && output->backend->features.timeline &&
+			output->renderer && output->renderer->features.timeline) {
+		so->WLR_PRIVATE.in_timeline = wlr_drm_syncobj_timeline_create(drm_fd);
+		so->WLR_PRIVATE.out_timeline = wlr_drm_syncobj_timeline_create(drm_fd);
+		if (!so->WLR_PRIVATE.in_timeline || !so->WLR_PRIVATE.out_timeline) {
+			if (so->WLR_PRIVATE.in_timeline) {
+				wlr_drm_syncobj_timeline_unref(so->WLR_PRIVATE.in_timeline);
+				so->WLR_PRIVATE.in_timeline = NULL;
+			}
+			if (so->WLR_PRIVATE.out_timeline) {
+				wlr_drm_syncobj_timeline_unref(so->WLR_PRIVATE.out_timeline);
+				so->WLR_PRIVATE.out_timeline = NULL;
+			}
+		}
+	}
+
 	wlr_damage_ring_add_whole(&so->damage_ring);
 	scene_node_update(&scene->tree.node, NULL);
 	return so;
@@ -287,6 +305,12 @@ void wlr_scene_output_destroy(struct wlr_scene_output *so) {
 
 	if (so->ct_swapchain) {
 		wlr_swapchain_destroy(so->ct_swapchain);
+	}
+	if (so->WLR_PRIVATE.in_timeline) {
+		wlr_drm_syncobj_timeline_unref(so->WLR_PRIVATE.in_timeline);
+	}
+	if (so->WLR_PRIVATE.out_timeline) {
+		wlr_drm_syncobj_timeline_unref(so->WLR_PRIVATE.out_timeline);
 	}
 	if (so->WLR_PRIVATE.gamma_lut_color_transform) {
 		wlr_color_transform_unref(so->WLR_PRIVATE.gamma_lut_color_transform);
@@ -531,17 +555,58 @@ static void render_items_gles2_rounded(struct sway_corner_renderer *cr,
 	}
 }
 
-static struct wlr_color_transform *update_output_color_transform(
-		struct wlr_scene_output *so, struct wlr_color_transform *supplied) {
+static struct wlr_color_transform *update_output_gamma_and_color_transform(
+		struct wlr_scene_output *so, struct wlr_output_state *state,
+		struct wlr_color_transform *supplied) {
 	if (so->WLR_PRIVATE.gamma_lut_changed) {
 		so->WLR_PRIVATE.gamma_lut_changed = false;
 		if (so->WLR_PRIVATE.gamma_lut_color_transform) {
 			wlr_color_transform_unref(so->WLR_PRIVATE.gamma_lut_color_transform);
 			so->WLR_PRIVATE.gamma_lut_color_transform = NULL;
 		}
-		if (so->WLR_PRIVATE.gamma_lut) {
-			so->WLR_PRIVATE.gamma_lut_color_transform =
-				wlr_gamma_control_v1_get_color_transform(so->WLR_PRIVATE.gamma_lut);
+
+		size_t gamma_size = wlr_output_get_gamma_size(so->output);
+		so->WLR_PRIVATE.gamma_lut_sw = false;
+		if (!so->WLR_PRIVATE.gamma_lut) {
+			if (gamma_size > 0) {
+				wlr_gamma_control_v1_apply(NULL, state);
+			}
+		} else {
+			bool hw_applied = false;
+			if (gamma_size > 0) {
+				struct wlr_output_state test_state;
+				wlr_output_state_init(&test_state);
+				if (wlr_output_state_copy(&test_state, state) &&
+						wlr_gamma_control_v1_apply(so->WLR_PRIVATE.gamma_lut, &test_state) &&
+						wlr_output_test_state(so->output, &test_state)) {
+					hw_applied = wlr_gamma_control_v1_apply(so->WLR_PRIVATE.gamma_lut, state);
+				}
+				wlr_output_state_finish(&test_state);
+			}
+
+			if (!hw_applied) {
+				if (so->output->renderer &&
+						so->output->renderer->features.output_color_transform) {
+					so->WLR_PRIVATE.gamma_lut_color_transform =
+						wlr_gamma_control_v1_get_color_transform(so->WLR_PRIVATE.gamma_lut);
+				}
+				if (so->WLR_PRIVATE.gamma_lut_color_transform) {
+					if (gamma_size > 0) {
+						wlr_gamma_control_v1_apply(NULL, state);
+					}
+				} else if (sway_corner_renderer_for_wlr(so->output->renderer) &&
+						so->WLR_PRIVATE.gamma_lut->table &&
+						so->WLR_PRIVATE.gamma_lut->ramp_size > 1) {
+					// GLES2 renderer doesn't advertise output_color_transform; apply 1D LUT via corner_renderer
+					so->WLR_PRIVATE.gamma_lut_sw = true;
+					if (gamma_size > 0) {
+						wlr_gamma_control_v1_apply(NULL, state);
+					}
+				} else {
+					wlr_gamma_control_v1_send_failed_and_destroy(so->WLR_PRIVATE.gamma_lut);
+					so->WLR_PRIVATE.gamma_lut = NULL;
+				}
+			}
 		}
 	}
 
@@ -559,11 +624,17 @@ static struct wlr_color_transform *update_output_color_transform(
 			wlr_color_transform_unref(so->WLR_PRIVATE.combined_color_transform);
 			so->WLR_PRIVATE.combined_color_transform = NULL;
 		}
+		if (so->WLR_PRIVATE.prev_gamma_lut_color_transform) {
+			wlr_color_transform_unref(so->WLR_PRIVATE.prev_gamma_lut_color_transform);
+		}
+		if (so->WLR_PRIVATE.prev_supplied_color_transform) {
+			wlr_color_transform_unref(so->WLR_PRIVATE.prev_supplied_color_transform);
+		}
 		struct wlr_color_transform *pipeline[2] = { supplied, gamma };
 		so->WLR_PRIVATE.combined_color_transform =
 			wlr_color_transform_init_pipeline(pipeline, 2);
-		so->WLR_PRIVATE.prev_gamma_lut_color_transform = gamma;
-		so->WLR_PRIVATE.prev_supplied_color_transform = supplied;
+		so->WLR_PRIVATE.prev_gamma_lut_color_transform = wlr_color_transform_ref(gamma);
+		so->WLR_PRIVATE.prev_supplied_color_transform = wlr_color_transform_ref(supplied);
 	}
 	return so->WLR_PRIVATE.combined_color_transform;
 }
@@ -604,7 +675,10 @@ bool wlr_scene_output_build_state(struct wlr_scene_output *so,
 	int eff_h = (int)ceilf(tr_h / scale);
 
 	struct wlr_color_transform *color_transform =
-		update_output_color_transform(so, options->color_transform);
+		update_output_gamma_and_color_transform(so, state, options->color_transform);
+	bool gamma_sw = so->WLR_PRIVATE.gamma_lut_sw &&
+		so->WLR_PRIVATE.gamma_lut && so->WLR_PRIVATE.gamma_lut->table &&
+		so->WLR_PRIVATE.gamma_lut->ramp_size > 1;
 
 	so->WLR_PRIVATE.render_list.size = 0;
 	struct render_collect_data collect = {
@@ -690,7 +764,8 @@ bool wlr_scene_output_build_state(struct wlr_scene_output *so,
 
 	// Try direct scanout when single fullscreen unrounded opaque buffer covers output
 	if (so->scene->WLR_PRIVATE.direct_scanout && write_idx == 1 && !collect.has_rounded_fx &&
-			!color_transform && items[0].node->type == WLR_SCENE_NODE_BUFFER) {
+			!color_transform && !gamma_sw && wlr_output_is_direct_scanout_allowed(output) &&
+			items[0].node->type == WLR_SCENE_NODE_BUFFER) {
 		struct wlr_scene_buffer *buf = wlr_scene_buffer_from_node(items[0].node);
 		if (buf->buffer && !buf->WLR_PRIVATE.is_single_pixel_buffer &&
 				buf->opacity >= 1.0f && wlr_fbox_empty(&buf->src_box) &&
@@ -698,23 +773,46 @@ bool wlr_scene_output_build_state(struct wlr_scene_output *so,
 				items[0].dst_box.x == 0 && items[0].dst_box.y == 0 &&
 				items[0].dst_box.width == tr_w && items[0].dst_box.height == tr_h &&
 				buf->buffer->width == buf_w && buf->buffer->height == buf_h) {
-			wlr_output_state_set_buffer(state, buf->buffer);
-			if (buf->WLR_PRIVATE.wait_timeline) {
-				wlr_output_state_set_wait_timeline(state,
-					buf->WLR_PRIVATE.wait_timeline, buf->WLR_PRIVATE.wait_point);
+			struct wlr_output_state test_state;
+			wlr_output_state_init(&test_state);
+			bool can_scanout = wlr_output_state_copy(&test_state, state);
+			if (can_scanout) {
+				wlr_output_state_set_buffer(&test_state, buf->buffer);
+				if (buf->WLR_PRIVATE.wait_timeline) {
+					wlr_output_state_set_wait_timeline(&test_state,
+						buf->WLR_PRIVATE.wait_timeline, buf->WLR_PRIVATE.wait_point);
+				}
+				if (so->WLR_PRIVATE.out_timeline) {
+					wlr_output_state_set_signal_timeline(&test_state,
+						so->WLR_PRIVATE.out_timeline, so->WLR_PRIVATE.out_point + 1);
+				}
+				can_scanout = wlr_output_test_state(output, &test_state);
 			}
-			pixman_region32_t dmg;
-			pixman_region32_init(&dmg);
-			wlr_damage_ring_rotate_buffer(&so->damage_ring, buf->buffer, &dmg);
-			wlr_output_state_set_damage(state, &dmg);
-			pixman_region32_fini(&dmg);
+			wlr_output_state_finish(&test_state);
 
-			struct wlr_scene_output_sample_event sample_ev = {
-				.output = so,
-				.direct_scanout = true,
-			};
-			wl_signal_emit_mutable(&buf->events.output_sample, &sample_ev);
-			return true;
+			if (can_scanout) {
+				wlr_output_state_set_buffer(state, buf->buffer);
+				if (buf->WLR_PRIVATE.wait_timeline) {
+					wlr_output_state_set_wait_timeline(state,
+						buf->WLR_PRIVATE.wait_timeline, buf->WLR_PRIVATE.wait_point);
+				}
+				if (so->WLR_PRIVATE.out_timeline) {
+					wlr_output_state_set_signal_timeline(state,
+						so->WLR_PRIVATE.out_timeline, ++so->WLR_PRIVATE.out_point);
+				}
+				pixman_region32_t dmg;
+				pixman_region32_init(&dmg);
+				wlr_damage_ring_rotate_buffer(&so->damage_ring, buf->buffer, &dmg);
+				wlr_output_state_set_damage(state, &dmg);
+				pixman_region32_fini(&dmg);
+
+				struct wlr_scene_output_sample_event sample_ev = {
+					.output = so,
+					.direct_scanout = true,
+				};
+				wl_signal_emit_mutable(&buf->events.output_sample, &sample_ev);
+				return true;
+			}
 		}
 	}
 
@@ -735,20 +833,42 @@ bool wlr_scene_output_build_state(struct wlr_scene_output *so,
 	pixman_region32_init(&buffer_damage);
 	wlr_damage_ring_rotate_buffer(&so->damage_ring, dst_buffer, &buffer_damage);
 
-	struct sway_corner_renderer *cr = collect.has_rounded_fx
+	struct sway_corner_renderer *cr = (collect.has_rounded_fx || gamma_sw)
 		? sway_corner_renderer_for_wlr(renderer) : NULL;
 
+	struct wlr_drm_syncobj_timeline *signal_tl = so->WLR_PRIVATE.in_timeline;
+	uint64_t signal_pt = signal_tl ? ++so->WLR_PRIVATE.in_point : 0;
+	bool used_timeline = false;
+
 	bool ok = true;
-	if (cr && !color_transform) {
+	if (cr && !color_transform && !gamma_sw) {
 		if (!sway_corner_renderer_begin(cr, dst_buffer, &buffer_damage)) {
 			ok = false;
 		} else {
 			render_items_gles2_rounded(cr, renderer, &so->WLR_PRIVATE.render_list,
 				transform, dst_buffer->width, dst_buffer->height, &buffer_damage);
-			sway_corner_renderer_end(cr);
+			if (output->software_cursor_locks > 0) {
+				sway_corner_renderer_end_flush(cr);
+				struct wlr_render_pass *cursor_pass = wlr_renderer_begin_buffer_pass(renderer,
+					dst_buffer, &(struct wlr_buffer_pass_options){
+						.timer = options->timer ? options->timer->render_timer : NULL,
+						.signal_timeline = signal_tl,
+						.signal_point = signal_pt,
+					});
+				if (cursor_pass) {
+					wlr_output_add_software_cursors_to_render_pass(output, cursor_pass, &buffer_damage);
+					ok = wlr_render_pass_submit(cursor_pass);
+					used_timeline = ok && signal_tl != NULL;
+				} else {
+					ok = false;
+				}
+			} else {
+				bool fence_synced = sway_corner_renderer_end_sync(cr, signal_tl, signal_pt);
+				used_timeline = signal_tl != NULL && fence_synced;
+			}
 		}
-	} else if (cr && color_transform) {
-		// Render rounded scene to intermediate swapchain buffer, then blit with color_transform
+	} else if (cr && (color_transform || gamma_sw)) {
+		// Render scene to intermediate swapchain buffer, then blit with color_transform / gamma LUT
 		if (!so->ct_swapchain ||
 				so->ct_swapchain->width != dst_buffer->width ||
 				so->ct_swapchain->height != dst_buffer->height) {
@@ -760,35 +880,93 @@ bool wlr_scene_output_build_state(struct wlr_scene_output *so,
 		}
 		struct wlr_buffer *inter_buf = so->ct_swapchain
 			? wlr_swapchain_acquire(so->ct_swapchain) : NULL;
-		if (!inter_buf || !sway_corner_renderer_begin(cr, inter_buf, &buffer_damage)) {
-			if (inter_buf) wlr_buffer_unlock(inter_buf);
+		if (!inter_buf) {
 			ok = false;
 		} else {
 			pixman_region32_t full;
 			pixman_region32_init_rect(&full, 0, 0, inter_buf->width, inter_buf->height);
-			render_items_gles2_rounded(cr, renderer, &so->WLR_PRIVATE.render_list,
-				transform, inter_buf->width, inter_buf->height, &full);
-			pixman_region32_fini(&full);
-			sway_corner_renderer_end(cr);
-
-			struct wlr_texture *inter_tex = wlr_texture_from_buffer(renderer, inter_buf);
-			struct wlr_render_pass *pass = wlr_renderer_begin_buffer_pass(renderer,
-				dst_buffer, &(struct wlr_buffer_pass_options){
-					.timer = options->timer ? options->timer->render_timer : NULL,
-					.color_transform = color_transform,
-				});
-			if (pass && inter_tex) {
-				wlr_render_pass_add_texture(pass, &(struct wlr_render_texture_options){
-					.texture = inter_tex,
-					.dst_box = { 0, 0, dst_buffer->width, dst_buffer->height },
-					.clip = &buffer_damage,
-					.blend_mode = WLR_RENDER_BLEND_MODE_NONE,
-				});
-				ok = wlr_render_pass_submit(pass);
+			if (collect.has_rounded_fx) {
+				if (!sway_corner_renderer_begin(cr, inter_buf, &full)) {
+					ok = false;
+				} else {
+					render_items_gles2_rounded(cr, renderer, &so->WLR_PRIVATE.render_list,
+						transform, inter_buf->width, inter_buf->height, &full);
+					sway_corner_renderer_end_flush(cr);
+				}
 			} else {
-				ok = false;
+				struct wlr_render_pass *scene_pass = wlr_renderer_begin_buffer_pass(renderer,
+					inter_buf, &(struct wlr_buffer_pass_options){
+						.timer = options->timer ? options->timer->render_timer : NULL,
+					});
+				if (scene_pass) {
+					render_items_wlr_pass(scene_pass, renderer, &so->WLR_PRIVATE.render_list,
+						transform, inter_buf->width, inter_buf->height, &full);
+					ok = wlr_render_pass_submit(scene_pass);
+				} else {
+					ok = false;
+				}
 			}
-			if (inter_tex) wlr_texture_destroy(inter_tex);
+			pixman_region32_fini(&full);
+
+			if (ok) {
+				struct wlr_texture *inter_tex = wlr_texture_from_buffer(renderer, inter_buf);
+				if (!inter_tex) {
+					ok = false;
+				} else if (gamma_sw) {
+					if (!sway_corner_renderer_begin(cr, dst_buffer, &buffer_damage)) {
+						ok = false;
+					} else {
+						sway_corner_renderer_draw_gamma_blit(cr, inter_tex,
+							dst_buffer->width, dst_buffer->height,
+							so->WLR_PRIVATE.gamma_lut->table,
+							so->WLR_PRIVATE.gamma_lut->ramp_size,
+							&buffer_damage);
+						if (output->software_cursor_locks > 0) {
+							sway_corner_renderer_end_flush(cr);
+							struct wlr_render_pass *cursor_pass = wlr_renderer_begin_buffer_pass(
+								renderer, dst_buffer, &(struct wlr_buffer_pass_options){
+									.timer = options->timer ? options->timer->render_timer : NULL,
+									.signal_timeline = signal_tl,
+									.signal_point = signal_pt,
+								});
+							if (cursor_pass) {
+								wlr_output_add_software_cursors_to_render_pass(
+									output, cursor_pass, &buffer_damage);
+								ok = wlr_render_pass_submit(cursor_pass);
+								used_timeline = ok && signal_tl != NULL;
+							} else {
+								ok = false;
+							}
+						} else {
+							bool fence_synced = sway_corner_renderer_end_sync(
+								cr, signal_tl, signal_pt);
+							used_timeline = signal_tl != NULL && fence_synced;
+						}
+					}
+				} else {
+					struct wlr_render_pass *pass = wlr_renderer_begin_buffer_pass(renderer,
+						dst_buffer, &(struct wlr_buffer_pass_options){
+							.timer = options->timer ? options->timer->render_timer : NULL,
+							.color_transform = color_transform,
+							.signal_timeline = signal_tl,
+							.signal_point = signal_pt,
+						});
+					if (pass) {
+						wlr_render_pass_add_texture(pass, &(struct wlr_render_texture_options){
+							.texture = inter_tex,
+							.dst_box = { 0, 0, dst_buffer->width, dst_buffer->height },
+							.clip = &buffer_damage,
+							.blend_mode = WLR_RENDER_BLEND_MODE_NONE,
+						});
+						wlr_output_add_software_cursors_to_render_pass(output, pass, &buffer_damage);
+						ok = wlr_render_pass_submit(pass);
+						used_timeline = ok && signal_tl != NULL;
+					} else {
+						ok = false;
+					}
+				}
+				if (inter_tex) wlr_texture_destroy(inter_tex);
+			}
 			wlr_buffer_unlock(inter_buf);
 		}
 	} else {
@@ -796,13 +974,17 @@ bool wlr_scene_output_build_state(struct wlr_scene_output *so,
 			dst_buffer, &(struct wlr_buffer_pass_options){
 				.timer = options->timer ? options->timer->render_timer : NULL,
 				.color_transform = color_transform,
+				.signal_timeline = signal_tl,
+				.signal_point = signal_pt,
 			});
 		if (!pass) {
 			ok = false;
 		} else {
 			render_items_wlr_pass(pass, renderer, &so->WLR_PRIVATE.render_list,
 				transform, dst_buffer->width, dst_buffer->height, &buffer_damage);
+			wlr_output_add_software_cursors_to_render_pass(output, pass, &buffer_damage);
 			ok = wlr_render_pass_submit(pass);
+			used_timeline = ok && signal_tl != NULL;
 		}
 	}
 
@@ -814,6 +996,14 @@ bool wlr_scene_output_build_state(struct wlr_scene_output *so,
 	}
 
 	wlr_output_state_set_buffer(state, dst_buffer);
+	if (used_timeline && so->WLR_PRIVATE.in_timeline) {
+		wlr_output_state_set_wait_timeline(state,
+			so->WLR_PRIVATE.in_timeline, so->WLR_PRIVATE.in_point);
+	}
+	if (so->WLR_PRIVATE.out_timeline) {
+		wlr_output_state_set_signal_timeline(state,
+			so->WLR_PRIVATE.out_timeline, ++so->WLR_PRIVATE.out_point);
+	}
 	wlr_output_state_set_damage(state, &buffer_damage);
 	pixman_region32_fini(&buffer_damage);
 	wlr_buffer_unlock(dst_buffer);
